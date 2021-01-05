@@ -1,5 +1,5 @@
 ---
-title: "ELISAQC: Processor for EUROIMMUN ELISA results from Biotek Gen5 software"
+title: "ELISAQC: EUROIMMUN ELISA kit results processor"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output: github_document
 ---
@@ -92,12 +92,12 @@ This list will be updated when initial development of the app is complete.  Key 
 
 ## Updates
 
-You can read about updates and changes to this app in the **[news](changelog.md)** page.  
+You can read about updates and changes to this app in the **[news](https://github.com/msf-ocba/MOL/blob/master/CHANGELOG.md)** page.  
 
 
 ## Comments and suggestions:
 
-This application is still in development; feedback is particularly welcome.  Please report any bugs, suggestions or feature requests as new issues **[here](/issues)**, clearly stating the name of the function you are referring to in the subject title and tagging with an appropriate label. 
+This application is still in development; feedback is particularly welcome.  Please report any bugs, suggestions or feature requests as new issues **[here](https://github.com/msf-ocba/MOL/issues)**, clearly stating the name of the function you are referring to in the subject title and tagging with an appropriate label. 
 
 
 ## Contributing:
@@ -117,7 +117,7 @@ Contributions and submissions are welcome.  These can be submitted to the develo
   (see  [here](http://kbroman.org/pkg_primer/pages/docs.html) for examples)
 - Please **do not** include any sensitive data (usernames, passwords, personal identifying information) in your functions.
 
-Please refer to the **[contribution guide](/CONTRIBUTING.md)** for further details.
+Please refer to the **[contribution guide](https://github.com/msf-ocba/MOL/blob/master/CONTRIBUTING.md)** for further details.
 
 
 ## Maintainer:

@@ -1,6 +1,6 @@
-ELISAQC: Processor for EUROIMMUN ELISA results from Biotek Gen5 software
+ELISAQC: EUROIMMUN ELISA kit results processor
 ================
-04 January 2021
+05 January 2021
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
@@ -122,15 +122,16 @@ package with associated dependencies defined in the usual way.
 ## Updates
 
 You can read about updates and changes to this app in the
-**[news](changelog.md)** page.
+**[news](https://github.com/msf-ocba/MOL/blob/master/CHANGELOG.md)**
+page.
 
 ## Comments and suggestions:
 
 This application is still in development; feedback is particularly
 welcome. Please report any bugs, suggestions or feature requests as new
-issues **[here](/issues)**, clearly stating the name of the function you
-are referring to in the subject title and tagging with an appropriate
-label.
+issues **[here](https://github.com/msf-ocba/MOL/issues)**, clearly
+stating the name of the function you are referring to in the subject
+title and tagging with an appropriate label.
 
 ## Contributing:
 
@@ -157,8 +158,9 @@ to be eligible for submission:
   - Please **do not** include any sensitive data (usernames, passwords,
     personal identifying information) in your functions.
 
-Please refer to the **[contribution guide](/CONTRIBUTING.md)** for
-further details.
+Please refer to the **[contribution
+guide](https://github.com/msf-ocba/MOL/blob/master/CONTRIBUTING.md)**
+for further details.
 
 ## Maintainer:
 

@@ -1,0 +1,9 @@
+*.Rproj
+.user
+
+.Rhistory
+
+.RData
+
+/test/
+/App_icons/

@@ -104,22 +104,7 @@ This application is still in development; feedback is particularly welcome.  Ple
 
 ## Contributing:
 
-Contributions and submissions are welcome.  These can be submitted to the development branch of this project in the first instance via a merge request.  Please note that functions should meet the following criteria to be eligible for submission:
-
-- The function should fit the **remit** of this package, i.e. processing ELISA results
-- New functions should complement existing functions
-- Alternatively, suggest enhancements to existing functions
-- Please provide as much detail as possible about your function including:
-    + name and contact details of the author 
-    + references for any credits (e.g. StackOverflow, other contributors)
-    + a concise description of the function's purpose (avoid jargon)
-    + details and caveates
-    + a testable example
-- Please provide these details by using structured `Roxygen2` style annotation 
-  (see  [here](http://kbroman.org/pkg_primer/pages/docs.html) for examples)
-- Please **do not** include any sensitive data (usernames, passwords, personal identifying information) in your functions.
-
-Please refer to the **[contribution guide](https://github.com/msf-ocba/MOL/blob/master/CONTRIBUTING.md)** for further details.
+Contributions and submissions are welcome.  These can be submitted to the development branch of this repository in the first instance via a merge request.  Please refer to the **[contribution guide](https://github.com/msf-ocba/MOL/blob/master/CONTRIBUTING.md)** for further details.
 
 
 ## Maintainer:

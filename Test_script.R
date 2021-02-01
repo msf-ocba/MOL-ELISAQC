@@ -2,55 +2,138 @@
 ### ELISA QC CODE FOR SHINY APP ###
 ###################################
 
-### LOAD PACKAGES ###
+# Notes for code reviewers:
+# - This script performs a complete QC check, analysis and interpretation on raw ELISA data from EUROIMMUN kits
+# - The script is accompanied by two data sets, one which will pass the QC process and one which will fail.
+# - There are also two matching tables of sample IDs - choose the one which matches the dataset you want to test.
+# - After you have set which example data set and which set of sample IDs to use, you can run the rest of the code.
+# - If you want to test this script with other datasets:
+# ----- put them in the "data" folder of this repository
+# ----- read in or create a table of matching sample IDs (see 96-well plate format below for example)
+# ----- Change the name of the table assigned to "labels2use"
+# ----- Change the name of the dataset to import and other parameters (e.g. rows to skip) in the import section
 
+# Future developments:
+# - This code is currently in a regular R script for initial testing but will soon be incorporated into a Shiny app.
+# - Once the Shiny app has been developed, this script will still be available in the archive folder.
+
+# Organisation of this code:
+# - This code is divided into four main sections:
+# - a. User input data (sample ids, quality control reference values and raw ELISA results)
+# - b. Data preprocessing (reshaping and merging)
+# - c. Analysis (calculation of quantitative results, interpretation and application of QC flags)
+# - d. Production of outputs (graphs, heatmap, QC table, summary statement and processed data file)
+
+# Lastly, please abide by the contribution guidelines and log any issues you encounter on the GitHub repository.
+
+
+###################################
+### R SETTINGS AND PACKAGES #######
+###################################
+
+### List of required packages:
+pkgs2install <- c("devtools", 
+                  "shiny",
+                  "knitr", 
+                  "rmarkdown",
+                  "here", 
+                  "data.table",
+                  "dplyr",
+                  "tidyr", 
+                  "ggplot2",
+                  "openxlsx", 
+                  "flextable")
+
+# Install packages (if required):
+if (!requireNamespace(c(pkgs2install), quietly = TRUE)) install.packages(c(pkgs2install))
+
+### Load packages:
+library(here)
 library(data.table)
+library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(openxlsx)
+library(flextable)
 
 ### Set R options:
 options(scipen = 999)
 
 ###################################
-### EXAMPLE LABELS ###
+### IMPORT DATA AND USER INPUTS ###
+###################################
 
-# Create example table of Sample IDs in 96-well plate configuration:
-labels_qcfail <- data.table(Rows = c("A", "B", "C", "D", "E", "F", "G", "H"), 
-                      C01 = c("Cal", "IPC", "INC", "EPC", "ENC", "S01", "S02", "S03"), 
-                      C02 = c("Cal", "IPC", "INC", "EPC", "ENC", "S04", "S05", "S06"),
-                      C03 = c("S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14"),
-                      C04 = c("S15", "S16", "S17", "S18", "S19", "S20", "S21", "S22"), 
-                      C05 = c("S23", "S24", "S25", "S26", "S27", "S28", "S29", "S30"), 
-                      C06 = c("S31", "S32", "S33", "S34", "S35", "S36", "S37", "S38"), 
-                      C07 = c("S39", "S40", "S41", "S42", "S43", "S44", "S45", "S46"), 
-                      C08 = c("S47", 48, 49, 50, "", "", "", ""),  
-                      C09 = c("", "", "", "", "", "", "", ""), 
-                      C10 = c("", "", "", "", "", "", "", ""), 
-                      C11 = c("", "", "", "", "", "", "", ""), 
-                      C12 = c("", "", "", "", "", "", "", ""))
+### A. ENTER SAMPLE ID LABELS #####
 
-# Example labels for drytest data:
-labels_qcpass <- data.table(Rows = c("A", "B", "C", "D", "E", "F", "G", "H"), 
-                            C01 = c("Cal", "IPC", "INC", "EPC", "ENC", "S01", "S02", "S03"), 
-                            C02 = c("Cal", "IPC", "INC", "EPC", "ENC", "S04", "S05", "S06"),
-                            C03 = c("", "", "", "", "", "", "", ""),
-                            C04 = c("", "", "", "", "", "", "", ""), 
-                            C05 = c("", "", "", "", "", "", "", ""), 
-                            C06 = c("", "", "", "", "", "", "", ""), 
-                            C07 = c("", "", "", "", "", "", "", ""), 
-                            C08 = c("", "", "", "", "", "", "", ""),  
-                            C09 = c("", "", "", "", "", "", "", ""), 
-                            C10 = c("", "", "", "", "", "", "", ""), 
-                            C11 = c("", "", "", "", "", "", "", ""), 
-                            C12 = c("", "", "", "", "", "", "", ""))
+# Source the script that will create example tables of sample IDs:
+labels2use <- source(here("data", "SampleIDs_QCfail.R"))
 
-# Define labels to use:
+# Define which labels to use:
 labels2use <- labels_qcfail
 
 
+####################################
+### B. IMPORT RAW ELISA RESULTS ####
+
+# Example data that will fail QC:
+data_qcfail <- fread(file = here("data", "ExampleData_QCfail.csv"), 
+                     stringsAsFactors = FALSE, 
+                     skip = 4, 
+                     header = TRUE, 
+                     dec = ".", 
+                     colClasses = list(character = 1, numeric = 2:13))
+
+# Example data that will pass QC:
+data_qcpass <- fread(file = here("data", "ExampleData_QCpass.csv"), 
+                     stringsAsFactors = FALSE, # read in strings as characters
+                     skip = 27, # number of rows to skip
+                     select = c(2:14), # which columns to select
+                     header = TRUE, # use the first row of the selected data as column names
+                     dec = ".", # specify the decimal separator (comma or period)
+                     colClasses = list(character = 2, numeric = 3:14)) # predefine column types by numeric reference
+
+# Define name of dataset to use:
+elisa_raw <- data_qcfail
+
+
 ###################################
-### RESHAPE TO LONG ###
+### C. IMPORT QC REFERNCE DATA ####
+
+# Import IPB QC data:
+ipbcontrols <- data.table(openxlsx::read.xlsx(xlsxFile = here("data", "20 10 21 IHC Rougeole Euroimmun.xlsx"), 
+                                              sheet = "saisie des données", 
+                                              startRow = 6, 
+                                              colNames = TRUE, 
+                                              cols = 1:7, 
+                                              sep.names = "_"))
+
+####################################
+### D. ENTER KIT REFERENCE VALUES ##
+
+# Define kit calibrator and control ranges:
+
+cal_ref <- 0.316
+
+cal_lower <- 0.140
+
+ipc_ref <- 2.6
+
+ipc_lower <- 1.4
+
+ipc_upper <- 3.8
+
+inc_ref <- 0.1
+
+inc_lower <- 0
+
+inc_upper <- 0.7
+
+
+###################################
+### DATA PREPROCESSING ############
+###################################
+
+### RESHAPE SAMPLE ID TABLE #######
 
 # Reshape labels from wide to long format:
 labelong <- data.table(tidyr::pivot_longer(data = labels2use, 
@@ -64,45 +147,12 @@ labelong[, Well := paste0(Rows, gsub("C", "", Cols))]
 # Sort columns:
 setcolorder(labelong, neworder = c("Rows", "Cols", "Well", "PID"))
 
-# Remove Row and Col columns:
-#labelong <- labelong[, c("Well", "PID")] # don't remove as need them for heatmap
-
 # Set key:
 setkeyv(labelong, c("Rows", "Cols", "Well"))
 
-###################################
-### IMPORT ELISA RESULTS ###
-
-# Test import EU format:
-eu <- fread(file = "ELISA_res_EU.csv",
-            stringsAsFactors = FALSE, 
-            skip = 4, 
-            header = TRUE, 
-            dec = ",", 
-            colClasses = list(character = 1, numeric = 2:13))
-
-# Test import UK format:
-data_qcfail <- fread(file = "ExampleData_QCfail.csv", 
-            stringsAsFactors = FALSE, 
-            skip = 4, 
-            header = TRUE, 
-            dec = ".", 
-            colClasses = list(character = 1, numeric = 2:13))
-
-# Test import of dry test data:
-data_qcpass <- fread(file = "ExampleData_QCpass.csv", 
-                 stringsAsFactors = FALSE, # read in strings as characters
-                 skip = 27, # number of rows to skip
-                 select = c(2:14), # which columns to select
-                 header = TRUE, # use the first row of the selected data as column names
-                 dec = ".", # specify the decimal separator (comma or period)
-                 colClasses = list(character = 2, numeric = 3:14)) # predefine column types by numeric reference
-
-# Define name of dataset to use:
-elisa_raw <- data_qcfail
 
 ###################################
-### SET COLUMN NAMES FOR ELISA ###
+### SET COLUMN NAMES FOR ELISA ####
 
 # Define column names to change:
 cols2change_o <- names(elisa_raw[,2:13])
@@ -115,8 +165,7 @@ setnames(elisa_raw, cols2change_o, cols2change_n)
 
 
 ###################################
-### RESHAPE ELISA RESULTS ###
-
+### RESHAPE ELISA RESULTS #########
 
 # Reshape labels from wide to long format:
 elisalong <- data.table(tidyr::pivot_longer(data = elisa_raw, 
@@ -136,7 +185,8 @@ setcolorder(elisalong, neworder = c("Rows", "Cols", "Well", "Delta_DO"))
 # Set key:
 setkeyv(elisalong, c("Rows", "Cols", "Well"))
 
-###################################
+
+###########################################
 ### MERGE ELISA RESULTS WITH SAMPLE IDS ###
 
 # Merge sample labels and elisa results:
@@ -150,7 +200,10 @@ elisadt[ PID == "Empty", Delta_DO := NA]
 
 
 ###################################
-### MORMALISE RESULTS ###
+### ANALYSIS AND CALCULATIONS #####
+###################################
+
+### MORMALISE RESULTS #############
 
 # Calculate average extinction value for calibrator duplicates:
 cal_mean <- mean(elisadt$Delta_DO[elisadt$PID == "Cal"])
@@ -169,16 +222,9 @@ elisadt[ Resultats >= 1.1, Interpretation := "Positif"]
 # Correct interpretation for calibrator results:
 elisadt[PID == "Cal", Interpretation := "Calibrateur"]
 
-###################################
-### ADD IPB QC CONTROL LIMITS ###  
 
-# Import IPB QC data:
-ipbcontrols <- data.table(openxlsx::read.xlsx(xlsxFile = "20 10 21 IHC Rougeole Euroimmun.xlsx", 
-                             sheet = "saisie des données", 
-                             startRow = 6, 
-                             colNames = TRUE, 
-                             cols = 1:7, 
-                             sep.names = "_"))
+###################################
+### ADD IPB QC CONTROL LIMITS #####  
 
 # Ensure columns are numeric:
 ipbcontrols[, Do_Ctl_Neg := as.numeric(Do_Ctl_Neg)]
@@ -210,28 +256,10 @@ ipbqc[, SDmoin2 := ControlMean - (ControlSD * 2)]
 ipbqc[, SDmoin3 := ControlMean - (ControlSD * 3)]
 
 
-###################################
-### ADD Kit QC CONTROL LIMITS ###  
-
-# Define kit calibrator and control ranges:
-
-cal_ref <- 0.316
-
-cal_lower <- 0.140
+########################################
+### ADD CALCULATED QC CONTROL LIMITS ###  
 
 cal_upper <- cal_ref * 3
-
-ipc_ref <- 2.6
-
-ipc_lower <- 1.4
-
-ipc_upper <- 3.8
-
-inc_ref <- 0.1
-
-inc_lower <- 0
-
-inc_upper <- 0.7
 
 epc_lower <- ipbqc$SDmoin2[ipbqc$PID == "EPC"]
 
@@ -243,7 +271,7 @@ enc_upper <- ipbqc$SDplus2[ipbqc$PID == "ENC"]
 
 
 ###################################
-### ADD QC FLAGS ###
+### ADD QC FLAGS ##################
 
 # Function to calculate coefficient of variation:
 cv <- function(values, groups){
@@ -316,7 +344,7 @@ qcdata[PID == "EPC", L_superieure := rep(epc_upper, 2)]
 
 
 # Determine if controls are within accepted range:
-qcdata[, QCpass := fifelse(between(x = Mean_RQ, 
+qcdata[, QCpass := fifelse(data.table::between(x = Mean_RQ, 
                                    lower = L_inferieure, 
                                    upper = L_superieure, 
                                    incbounds = TRUE), TRUE, FALSE)]
@@ -326,19 +354,52 @@ qcdata[, Interpretation := fifelse(QCpass == TRUE, "Acceptable",
                                    fifelse(QCpass == FALSE & Mean_RQ < L_inferieure, 
                                            "Trop faible", "Trop élevé"))]
 
-# Final text advice based on quality control results:
-if(all(qcdata$QC_cvpass) == TRUE & all(qcdata$QCpass) == TRUE) {
-  
-  conseil <- cat("Ce test ELISA a été soumis à des procédures internes de contrôle de la qualité.\nLes résultats sont prêts à être communiqués.")
-  
-} else {
-  
-  conseil <- cat("Ce test ELISA a échoué aux procédures internes de contrôle de la qualité.\nEnvisagez de refaire le test de la plaque.\nLes problèmes suivants doivent être vérifiés et résolus lors du dépannage:\n
-A. Si les résultats sont trop faibles:\n- Le temps d'incubation était trop court\n- La température d'incubation était trop basse\n- Le tampon de lavage n'a pas été complètement retiré des puits\n- Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\n
-B. Si les résultats sont trop élevés:\n- Le temps d'incubation était trop long\n- La température d'incubation (ambiante) était trop élevée\n- Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n- Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\n 
-C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n-Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")
-  
-}
+
+
+###################################
+### OUTPUTS AND DOWNLOADS #########
+###################################
+
+# Create QC output table:
+qcout <- dcast(qcdata, PID + 
+                 Mean_DOD + 
+                 SD_DOD + 
+                 CV + 
+                 QC_cvpass + 
+                 Mean_RQ + 
+                 L_inferieure + 
+                 L_superieure + 
+                 QCpass + 
+                 Interpretation ~ .)
+
+# Rename controls:
+qcout[, PID := .(dplyr::recode(PID, "Cal" = "Calibrateur", 
+                        "INC" = "Controle négatif - kit", 
+                        "ENC" = "Controle négatif - maison", 
+                        "IPC" = "Controle positif - kit", 
+                        "EPC" = "Controle positif - maison"))] 
+
+# Sort controls:
+setorder(qcout, PID, na.last = TRUE)
+
+# Remove extra column:
+qcout[, `.` := NULL]
+
+# Set column order:
+setcolorder(qcout, neworder = c("PID", "Mean_DOD", "Mean_RQ", "SD_DOD", "CV", "QC_cvpass", 
+                                "L_inferieure", "L_superieure", "QCpass", "Interpretation"))
+
+# Rename columns for clarity:
+setnames(qcout, old = c("Mean_DOD", "Mean_RQ"), new = c("Résultats_bruts", "Résultats_calculés"))
+
+# Reduce decimal places:
+numcols <- names(which(sapply(qcout, is.numeric)))
+qcout[, (numcols) := round(.SD, 3), .SDcols = numcols]
+
+# Create the printed table:
+qcprint <- theme_vanilla(flextable(qcout))
+
+qcprint
 
 ###################################
 ### GRAPH FOR IPB CONTROLS ###
@@ -418,7 +479,6 @@ EPCplot <- ggplot(EQCdata, aes(x = Serie, y = EPC, color = Plaque)) +
 # Print the negative control plot:
 EPCplot
 
-#ggplotly(EPCplot)
 
 
 ###################################
@@ -449,23 +509,46 @@ platemap <- ggplot(elisadt, aes(x = Colabs, y = ordered(Rowlabs, levels = rev(le
 platemap
 
 
+###################################
+### RESULTS STATEMENT FOR REPORT ##
 
 
+# Final text advice based on quality control results:
+if(all(qcdata$QC_cvpass) == TRUE & all(qcdata$QCpass) == TRUE) {
+  
+  conseil <- cat("Ce test ELISA a été soumis à des procédures internes de contrôle de la qualité.\nLes résultats sont prêts à être communiqués.")
+  
+} else {
+  
+  conseil <- cat("Ce test ELISA a échoué aux procédures internes de contrôle de la qualité.\nEnvisagez de refaire le test de la plaque.\nLes problèmes suivants doivent être vérifiés et résolus lors du dépannage:\n
+A. Si les résultats sont trop faibles:\n- Le temps d'incubation était trop court\n- La température d'incubation était trop basse\n- Le tampon de lavage n'a pas été complètement retiré des puits\n- Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\n
+B. Si les résultats sont trop élevés:\n- Le temps d'incubation était trop long\n- La température d'incubation (ambiante) était trop élevée\n- Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n- Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\n 
+C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n-Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")
+  
+}
+
+
+########################################
+### EXPORT OF PROCESSED ELISA RESULTS ##
+
+# Remove controls and blank wells before export:
+elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empty"), 
+                   select = c("PID", "Well", "Delta_DO", "Resultats", "Interpretation"))
+
+# Sort the data by patient ID:
+setorder(elisaout, PID)
+
+# Set date:
+today <- Sys.Date()
+
+# Export the sub-setted data:
+write.csv(x = elisaout, 
+          file = here("Output", paste0("Résultats ELISA à reporter_", today, ".csv")), 
+          na = "", 
+          row.names = FALSE)
+
+
+############################################################################
 ## To do:
 
-# Add QC table
 # Export Rmd report with all this stuff in it but also show on dashboard
-# Export ELISA data ready for import to another system
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -59,6 +59,9 @@ library(flextable)
 ### Set R options:
 options(scipen = 999)
 
+### Create output directory:
+if (!dir.exists(here("Output"))) {dir.create(here("Output"))}
+
 ###################################
 ### IMPORT DATA AND USER INPUTS ###
 ###################################

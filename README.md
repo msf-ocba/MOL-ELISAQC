@@ -102,19 +102,19 @@ Some example output is shown below:
 
 **A. Summary table of internal quality control assessment:**
 
-![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/QCtable_example.png)
+![](Examples/QCtable_example.png?raw=true)
 
 **B. Graph comparing in-house negative control with reference values:**
 
-![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/IPB%20negative%20control%20refs%20-%20graph.png)
+![](Examples/IPB%20negative%20control%20refs%20-%20graph.png?raw=true)
 
 **C. Graph comparing in-house positive control with reference values:**
 
-![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/IPB%20positive%20control%20refs%20-%20graph.png)
+![](Examples/IPB%20positive%20control%20refs%20-%20graph.png?raw=true)
 
 **D. Heatmap of ELISA plate (calibration-normalised ratios):**
 
-![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/Plate%20heatmap.png)
+![](Examples/Plate%20heatmap.png?raw=true)
 
 **E. Summary statement for QC report:**
 

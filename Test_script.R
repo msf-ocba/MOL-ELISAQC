@@ -456,9 +456,9 @@ EQCcurrent <- subset(EQCdata, Plaque == "Actuel")
 encbounds <- data.table(yintercept = c(ipbqc$SDmoin2[ipbqc$PID == "ENC"],
                                        ipbqc$ControlMean[ipbqc$PID == "ENC"],
                                        ipbqc$SDplus2[ipbqc$PID == "ENC"]), 
-                        Limites = c(paste0(expression("\u0394"), " 2 SD"), 
+                        Limites = c(paste0(expression("\u0394"), " 2 DS"), 
                                     "Moyen", 
-                                    paste0(expression("\u0394"), " 2 SD")))
+                                    paste0(expression("\u0394"), " 2 DS")))
 
 # Plot the line graph for the IPB negative control with points:
 ENCplot <- ggplot(EQCdata, aes(x = Serie, y = ENC, color = Plaque)) +
@@ -486,9 +486,9 @@ ENCplot
 epcbounds <- data.table(yintercept = c(ipbqc$SDmoin2[ipbqc$PID == "EPC"],
                                        ipbqc$ControlMean[ipbqc$PID == "EPC"],
                                        ipbqc$SDplus2[ipbqc$PID == "EPC"]), 
-                        Limites = c(paste0(expression("\u0394"), " 2 SD"), 
+                        Limites = c(paste0(expression("\u0394"), " 2 DS"), 
                                     "Moyen", 
-                                    paste0(expression("\u0394"), " 2 SD")))
+                                    paste0(expression("\u0394"), " 2 DS")))
 
 # Plot the line graph for the IPB positive control with points:
 EPCplot <- ggplot(EQCdata, aes(x = Serie, y = EPC, color = Plaque)) +
@@ -555,7 +555,7 @@ if(all(qcdata$QC_cvpass) == TRUE & all(qcdata$QCpass) == TRUE) {
   conseil <- cat("Ce test ELISA a échoué aux procédures internes de contrôle de la qualité.\nEnvisagez de refaire le test de la plaque.\nLes problèmes suivants doivent être vérifiés et résolus lors du dépannage:\n
 A. Si les résultats sont trop faibles:\n- Le temps d'incubation était trop court\n- La température d'incubation était trop basse\n- Le tampon de lavage n'a pas été complètement retiré des puits\n- Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\n
 B. Si les résultats sont trop élevés:\n- Le temps d'incubation était trop long\n- La température d'incubation (ambiante) était trop élevée\n- Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n- Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\n 
-C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n-Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")
+C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n- Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")
   
 }
 

@@ -140,7 +140,7 @@ follows:
     #>  
     #> C. Si les Coefficients de variation (CV) sont trop élevés:
     #> - Les broches du lecteur ELISA peuvent etre mal alignées
-    #> -Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière
+    #> - Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière
 
 It is assumed that under normal circumstances, users will run alignment
 calibration checks on the ELISA reader prior to running a plate and not

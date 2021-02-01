@@ -1,6 +1,6 @@
 ELISAQC: EUROIMMUN ELISA kit results processor
 ================
-08 January 2021
+01 February 2021
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
@@ -40,7 +40,8 @@ microplate readers or from future versions of Gen5 software.
 
 `ELISAQC` has been developed as a stand-alone Shiny App, which can be
 launched off-line via a .bat file on the desktop (included in this
-repository).
+repository). Note that the file path in the .bat file needs to be
+amended to where the user has installed this repository.
 
 ### User inputs:
 
@@ -84,24 +85,62 @@ data:
 
 `ELISAQC` provides the following outputs for the user:
 
-  - heatmap of calculated results in plate layout with labels (to view
-    in dashboard and downloadable image)
-  - downloadable table of of sample results (including sample IDs and QC
-    flags) as a .csv file
+  - Summary table of quality control flags
+  - Graph of in-house positive control value from the current run
+    compared to the reference range
+  - Graph of in-house negative control value from the current run
+    compared to the reference range
+  - Heatmap of calculated results in plate layout with labels
+  - Summary statement indicating if the run has passed the quality
+    control criteria or not
+  - Processed ELISA results for patient samples labelled with patient
+    IDs (as .csv to download)
   - downloadable .csv configuration file (which can be edited and
     re-used for future runs)
 
-**Note:**
+Some example output is shown below:
 
-The QC flags are also accompanied by an informative message interpreting
-the likely cause of the problem (if they have failed), as follows:
+**A. Summary table of internal quality control assessment:**
 
-  - **Positive control with ratio \< reference range:** run has failed,
-    repeat
-  - **Negative control with ratio \> reference range:** indicator of
-    cross-contamination, check CVs
-  - **Coefficients of variation \> accepted range:** indicator of
-    cross-contamination or reader misalignment
+![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/QCtable_example.png)
+
+**B. Graph comparing in-house negative control with reference values:**
+
+![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/IPB%20negative%20control%20refs%20-%20graph.png)
+
+**C. Graph comparing in-house positive control with reference values:**
+
+![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/IPB%20positive%20control%20refs%20-%20graph.png)
+
+**D. Heatmap of ELISA plate (calibration-normalised ratios):**
+
+![](D:/01_TIC_MOL/05_DataManagementICT/MOL-ELISAQC/Examples/Plate%20heatmap.png)
+
+**E. Summary statement for QC report:**
+
+If the run has failed the quality control evaluation, an informative
+message advising on possible causes of the failure is printed, as
+follows:
+
+    #> Ce test ELISA a échoué aux procédures internes de contrôle de la qualité.
+    #> Envisagez de refaire le test de la plaque.
+    #> Les problèmes suivants doivent être vérifiés et résolus lors du dépannage:
+    #> 
+    #> A. Si les résultats sont trop faibles:
+    #> - Le temps d'incubation était trop court
+    #> - La température d'incubation était trop basse
+    #> - Le tampon de lavage n'a pas été complètement retiré des puits
+    #> - Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs
+    #> 
+    #> B. Si les résultats sont trop élevés:
+    #> - Le temps d'incubation était trop long
+    #> - La température d'incubation (ambiante) était trop élevée
+    #> - Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)
+    #> - Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)
+    #>  
+    #> C. Si les Coefficients de variation (CV) sont trop élevés:
+    #> - Les broches du lecteur ELISA peuvent etre mal alignées
+    #> -Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière
 
 It is assumed that under normal circumstances, users will run alignment
 calibration checks on the ELISA reader prior to running a plate and not
@@ -115,14 +154,20 @@ indicator of the extent of impact of any alignment problems.
 The following R packages are used for the `ELISAQC` shiny app:
 
   - `shiny`
+  - `knitr`
+  - `rmarkdown`
   - `rhandsontable`
+  - `here`
   - `data.table`
+  - `dplyr`
   - `tidyr`
   - `ggplot2`
+  - `flextable`
+  - `officer`
+  - `openxlsx`
 
 This list will be updated when initial development of the app is
-complete. Key functions used by the app will be incorporated into an R
-package with associated dependencies defined in the usual way.
+complete. The release version will be bundled with required packages.
 
 ## Updates
 

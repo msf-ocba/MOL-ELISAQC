@@ -42,7 +42,8 @@ pkgs2install <- c("devtools",
                   "tidyr", 
                   "ggplot2",
                   "openxlsx", 
-                  "flextable")
+                  "flextable", 
+                  "officer")
 
 # Install packages (if required):
 if (!requireNamespace(c(pkgs2install), quietly = TRUE)) install.packages(c(pkgs2install))
@@ -55,6 +56,7 @@ library(tidyr)
 library(ggplot2)
 library(openxlsx)
 library(flextable)
+library(officer)
 
 ### Set R options:
 options(scipen = 999)
@@ -212,15 +214,15 @@ elisadt[ PID == "Empty", Delta_DO := NA]
 cal_mean <- mean(elisadt$Delta_DO[elisadt$PID == "Cal"])
 
 # Calculate normalised results:
-elisadt[, Resultats := (Delta_DO / cal_mean)]
+elisadt[, Rapport := (Delta_DO / cal_mean)]
 
 # Put Calibrator results back to their original values for QC:
-elisadt[PID == "Cal", Resultats := Delta_DO]
+elisadt[PID == "Cal", Rapport := Delta_DO]
 
 # Interpret normalised results:
-elisadt[ Resultats < 0.8, Interpretation := "Négatif"]
-elisadt[ Resultats >= 0.8 & Resultats < 1.1, Interpretation := "Limite"]
-elisadt[ Resultats >= 1.1, Interpretation := "Positif"]
+elisadt[ Rapport < 0.8, Interpretation := "Négatif"]
+elisadt[ Rapport >= 0.8 & Rapport < 1.1, Interpretation := "Limite"]
+elisadt[ Rapport >= 1.1, Interpretation := "Positif"]
 
 # Correct interpretation for calibrator results:
 elisadt[PID == "Cal", Interpretation := "Calibrateur"]
@@ -297,7 +299,7 @@ cv <- function(values, groups){
 controls <- c("Cal", "INC", "ENC", "IPC", "EPC")
 
 # Subset data for quality control:
-qcdata <- subset(elisadt, PID %in% controls, select = c("Well", "PID", "Delta_DO", "Resultats"))
+qcdata <- subset(elisadt, PID %in% controls, select = c("Well", "PID", "Delta_DO", "Rapport"))
 
 # Calculate the mean Delta_DO for each duplicate:
 qcdata[, Mean_DOD := mean(Delta_DO), by = PID]
@@ -312,49 +314,49 @@ qcdata[, CV := cv(Delta_DO), by = PID]
 qcdata[, maxcv := max(CV, na.rm = TRUE)]
 
 # Add a flag based on the results:
-qcdata[, QC_cvpass := fifelse(maxcv < 10, TRUE, FALSE)]
+qcdata[, QC_cvpass := fifelse(maxcv < 10, "Vrai", "Faux")]
 
 # Calculate mean of OD duplicates for calibrator:
 qcdata[PID == "Cal", Mean_RQ := mean(Delta_DO)]
 
 # Calculate mean calibrator-normalised value for kit negative control:
-qcdata[PID == "INC", Mean_RQ := mean(Resultats)]
+qcdata[PID == "INC", Mean_RQ := mean(Rapport)]
 
 # Calculate mean calibrator-normalised value for IPB negative control:
-qcdata[PID == "ENC", Mean_RQ := mean(Resultats)]
+qcdata[PID == "ENC", Mean_RQ := mean(Rapport)]
 
 # Calculate mean calibrator-normalised value for kit positive control:
-qcdata[PID == "IPC", Mean_RQ := mean(Resultats)]
+qcdata[PID == "IPC", Mean_RQ := mean(Rapport)]
 
 # Calculate mean calibrator-normalised value for IPB positive control:
-qcdata[PID == "EPC", Mean_RQ := mean(Resultats)]
+qcdata[PID == "EPC", Mean_RQ := mean(Rapport)]
 
 
 # Add lower bounds column:
-qcdata[PID == "Cal", L_inferieure := rep(cal_lower, 2)]
-qcdata[PID == "INC", L_inferieure := rep(inc_lower, 2)]
-qcdata[PID == "ENC", L_inferieure := rep(enc_lower, 2)]
-qcdata[PID == "IPC", L_inferieure := rep(ipc_lower, 2)]
-qcdata[PID == "EPC", L_inferieure := rep(epc_lower, 2)]
+qcdata[PID == "Cal", Inferieure := rep(cal_lower, 2)]
+qcdata[PID == "INC", Inferieure := rep(inc_lower, 2)]
+qcdata[PID == "ENC", Inferieure := rep(enc_lower, 2)]
+qcdata[PID == "IPC", Inferieure := rep(ipc_lower, 2)]
+qcdata[PID == "EPC", Inferieure := rep(epc_lower, 2)]
 
 
 # Add upper bounds column:
-qcdata[PID == "Cal", L_superieure := rep(cal_upper, 2)]
-qcdata[PID == "INC", L_superieure := rep(inc_upper, 2)]
-qcdata[PID == "ENC", L_superieure := rep(enc_upper, 2)]
-qcdata[PID == "IPC", L_superieure := rep(ipc_upper, 2)]
-qcdata[PID == "EPC", L_superieure := rep(epc_upper, 2)]
+qcdata[PID == "Cal", Superieure := rep(cal_upper, 2)]
+qcdata[PID == "INC", Superieure := rep(inc_upper, 2)]
+qcdata[PID == "ENC", Superieure := rep(enc_upper, 2)]
+qcdata[PID == "IPC", Superieure := rep(ipc_upper, 2)]
+qcdata[PID == "EPC", Superieure := rep(epc_upper, 2)]
 
 
 # Determine if controls are within accepted range:
 qcdata[, QCpass := fifelse(data.table::between(x = Mean_RQ, 
-                                   lower = L_inferieure, 
-                                   upper = L_superieure, 
-                                   incbounds = TRUE), TRUE, FALSE)]
+                                   lower = Inferieure, 
+                                   upper = Superieure, 
+                                   incbounds = TRUE), "Vrai", "Faux")]
 
 # Interpret QC results:
-qcdata[, Interpretation := fifelse(QCpass == TRUE, "Acceptable", 
-                                   fifelse(QCpass == FALSE & Mean_RQ < L_inferieure, 
+qcdata[, Interpretation := fifelse(QCpass == "Vrai", "Acceptable", 
+                                   fifelse(QCpass == "Faux" & Mean_RQ < Inferieure, 
                                            "Trop faible", "Trop élevé"))]
 
 
@@ -370,17 +372,22 @@ qcout <- dcast(qcdata, PID +
                  CV + 
                  QC_cvpass + 
                  Mean_RQ + 
-                 L_inferieure + 
-                 L_superieure + 
+                 Inferieure + 
+                 Superieure + 
                  QCpass + 
-                 Interpretation ~ .)
+                 Interpretation ~ ., value.var = "PID", fun.aggregate = length)
+
+# Add source of controls in a separate column:
+qcout[grepl("^I", PID) == TRUE | PID == "Cal", Source := "kit"]
+qcout[grepl("^E", PID) == TRUE, Source := "maison"]
 
 # Rename controls:
 qcout[, PID := .(dplyr::recode(PID, "Cal" = "Calibrateur", 
-                        "INC" = "Controle négatif - kit", 
-                        "ENC" = "Controle négatif - maison", 
-                        "IPC" = "Controle positif - kit", 
-                        "EPC" = "Controle positif - maison"))] 
+                        "INC" = "Négatif", 
+                        "ENC" = "Négatif", 
+                        "IPC" = "Positif", 
+                        "EPC" = "Positif"))] 
+
 
 # Sort controls:
 setorder(qcout, PID, na.last = TRUE)
@@ -389,19 +396,41 @@ setorder(qcout, PID, na.last = TRUE)
 qcout[, `.` := NULL]
 
 # Set column order:
-setcolorder(qcout, neworder = c("PID", "Mean_DOD", "Mean_RQ", "SD_DOD", "CV", "QC_cvpass", 
-                                "L_inferieure", "L_superieure", "QCpass", "Interpretation"))
+setcolorder(qcout, neworder = c("PID", "Source", "Mean_DOD", "Mean_RQ", "SD_DOD", "CV", "QC_cvpass", 
+                                "Inferieure", "Superieure", "QCpass", "Interpretation"))
 
-# Rename columns for clarity:
-setnames(qcout, old = c("Mean_DOD", "Mean_RQ"), new = c("Résultats_bruts", "Résultats_calculés"))
+# Rename columns in French for output:
+setnames(qcout, old = c("PID", "Mean_DOD", "Mean_RQ", "SD_DOD", "QC_cvpass", "QCpass"), 
+         new = c("Controle", "DO", "Rapport", "DS", "CV reussi", "CQ reussi"))
 
 # Reduce decimal places:
 numcols <- names(which(sapply(qcout, is.numeric)))
 qcout[, (numcols) := round(.SD, 3), .SDcols = numcols]
 
-# Create the printed table:
-qcprint <- theme_vanilla(flextable(qcout))
 
+# Create the printed table:
+qcprint <- flextable(qcout) %>% 
+  add_header_row(values = c("Controle", 
+                            "Source", 
+                            "DO", 
+                            "Rapport", 
+                            "DS", 
+                            "CV", 
+                            "CV reussi", 
+                            "Limite", 
+                            "Limite", 
+                            "CQ reussi", 
+                            "Interpretation")) %>%
+  theme_booktabs() %>%
+  autofit(part = "all") %>%
+  align(j = c(7, 10, 11), align = "right", part = "all") %>% 
+  merge_h(part = "header") %>%
+  merge_v(part = "header") %>%
+  align(j = c(8:9), i = 1, align = "center", part = "header") %>%
+  hline_top(border = fp_border(color = "black", width = 2), part = "all") %>%
+  bold(part = "header")  
+
+# Print the table:
 qcprint
 
 ###################################
@@ -493,7 +522,7 @@ elisadt[, Colabs := factor(Cols)]
 
 platemap <- ggplot(elisadt, aes(x = Colabs, y = ordered(Rowlabs, levels = rev(levels(Rowlabs))))) + 
   geom_tile(fill = "white", na.rm = TRUE) +
-  geom_point(aes(colour = Resultats, size = 200)) +
+  geom_point(aes(colour = Rapport, size = 200)) +
   scale_size_continuous(range = c(10, 12)) +
   guides(size = FALSE) +
   scale_color_gradient(low = "lightblue", high = "darkblue", na.value = "lightgrey") + 
@@ -536,7 +565,7 @@ C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du l
 
 # Remove controls and blank wells before export:
 elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empty"), 
-                   select = c("PID", "Well", "Delta_DO", "Resultats", "Interpretation"))
+                   select = c("PID", "Well", "Delta_DO", "Rapport", "Interpretation"))
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)

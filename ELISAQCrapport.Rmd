@@ -1,3 +1,74 @@
+---
+params:
+  kit:
+    label: "Selectionner le kit ELISA:"
+    value: "Rougeole (IgM - NP)"
+    input: select
+    choices: [Rougeole (IgM - NP), Rubéole (IgM - GP), Coqueluche (IgG - PT)]
+  ids:
+    label: "Selectionner le dossier avec les identifiants des échantillons:"
+    buttonLabel: "Télécharger"
+    placeholder: "Téléchargement en cours"
+    value: "./Data/SampleIDs_QCpass.csv"
+    input: file
+  resultats:
+    label: "Selectionner le dossier avec les résultats bruts du lecteur ELISA:"
+    buttonLabel: "Télécharger"
+    placeholder: "Téléchargement en cours"
+    value: "./Data/ExampleData_QCpass.csv"
+    input: file
+  refmaison:
+    label: "Selectionner le dossier avec les valeurs de référence pour controles de maison:"
+    buttonLabel: "Télécharger"
+    placeholder: "Téléchargement en cours"
+    value: "./Data/20 10 21 IHC Rougeole Euroimmun.xlsx"
+    input: file
+  operateur:
+    label: "Nom de laborantin qui a effectué cette plaque ELISA:"
+    value: "Amy Mikhail"
+    input: text
+  calref:
+    label: "Valeur de référence pour le calibrateur du kit:"
+    value: 0.316
+    input: numeric
+  calinf:
+    label: "Limite inférieure pour le calibrateur du kit"
+    value: 0.140
+    input: numeric
+  ipcref:
+    label: "Valeur de référence pour le controle positif du kit"
+    value: 2.6
+    input: numeric
+  ipcinf:
+    label: "Limite inférieure pour le controle positif du kit"
+    value: 1.4
+    input: numeric
+  ipcsup:
+    label: "Limite supérieure pour le controle positif du kit"
+    value: 3.8
+    input: numeric
+  incref:
+    label: "Valeur de référence pour le controle négatif du kit"
+    value: 0.1
+    input: numeric
+  incinf:
+    label: "Limite inférieure pour le controle négatif du kit"
+    value: 0
+    input: numeric
+  incsup:
+    label: "Limite supérieure pour le controle négatif du kit"
+    value: 0.7
+    input: numeric
+always_allow_html: yes
+title: "Rapport de Contrôle de Qualité ELISA"
+author: "Projet MOL: laboratoire mobile"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+
+---
+
+```{r setup, echo=FALSE, cache=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
 ###################################
 ### ELISA QC CODE FOR SHINY APP ###
 ###################################
@@ -36,6 +107,7 @@ pkgs2install <- c("devtools",
                   "shiny",
                   "knitr", 
                   "rmarkdown",
+                  #"tinytex",
                   "here", 
                   "data.table",
                   "dplyr",
@@ -45,10 +117,14 @@ pkgs2install <- c("devtools",
                   "flextable", 
                   "officer")
 
-# Install packages (if required):
-if (!requireNamespace(c(pkgs2install), quietly = TRUE)) install.packages(c(pkgs2install))
+### Install packages (if required):
+if (!requireNamespace(c(pkgs2install), quietly = TRUE)) install.packages(c(pkgs2install), dependencies = TRUE)
 
 ### Load packages:
+library(devtools)
+library(shiny)
+library(knitr)
+library(rmarkdown)
 library(here)
 library(data.table)
 library(dplyr)
@@ -58,38 +134,47 @@ library(openxlsx)
 library(flextable)
 library(officer)
 
-### Set R options:
-options(scipen = 999)
+### Function to calculate coefficient of variation:
+cv <- function(values, groups){
+  
+  # Calculate standard deviation:
+  stdev = sd(values)
+  
+  # Calculate mean:
+  avg = mean(values)
+  
+  # Calculate % coefficient of variation:
+  cvres  = round((stdev / avg) * 100, 2)
+  
+  # Return result:
+  return(cvres)
+  
+}
+
 
 ### Create output directory:
 if (!dir.exists(here("Output"))) {dir.create(here("Output"))}
 
-###################################
-### IMPORT DATA AND USER INPUTS ###
-###################################
 
-### A. ENTER SAMPLE ID LABELS #####
+### Set R options:
+options(scipen = 999)
 
-# Source the script that will create example tables of sample IDs:
-labels2use <- source(here("data", "SampleIDs_QCpass.R"))
+### Set chunk options:
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FALSE)
 
-# Define which labels to use:
-labels2use <- labels_qcpass
+```
 
 
-####################################
-### B. IMPORT RAW ELISA RESULTS ####
+```{r import data, include=FALSE}
 
-# Example data that will fail QC:
-data_qcfail <- fread(file = here("data", "ExampleData_QCfail.csv"), 
-                     stringsAsFactors = FALSE, 
-                     skip = 4, 
-                     header = TRUE, 
-                     dec = ".", 
-                     colClasses = list(character = 1, numeric = 2:13))
+### Define which labels to use:
+labels2use <- fread(file = params$ids, 
+                    stringsAsFactors = FALSE, 
+                    header = TRUE, 
+                    colClasses = list(character = 13))
 
-# Example data that will pass QC:
-data_qcpass <- fread(file = here("data", "ExampleData_QCpass.csv"), 
+### Define name of dataset to use:
+elisa_raw <- fread(file = params$resultats, 
                      stringsAsFactors = FALSE, # read in strings as characters
                      skip = 27, # number of rows to skip
                      select = c(2:14), # which columns to select
@@ -97,8 +182,8 @@ data_qcpass <- fread(file = here("data", "ExampleData_QCpass.csv"),
                      dec = ".", # specify the decimal separator (comma or period)
                      colClasses = list(character = 2, numeric = 3:14)) # predefine column types by numeric reference
 
-### Define time stamp for ELISA results from file:
-elisa_timestamp <- fread(file =  here("data", "ExampleData_QCpass.csv"), 
+### Import time stamp from raw ELISA results file:
+elisa_timestamp <- fread(file = params$resultats, 
                          stringsAsFactors = FALSE, 
                          skip = 1, 
                          select = 1, 
@@ -106,50 +191,20 @@ elisa_timestamp <- fread(file =  here("data", "ExampleData_QCpass.csv"),
                          header = FALSE, 
                          colClasses = "character")
 
-elisa_timestamp <- unlist(elisa_timestamp[1:1])
-elisa_timestamp <- as.POSIXlt.character(elisa_timestamp, format = "%d/%m/%Y %H:%M")
-
-# Define name of dataset to use:
-elisa_raw <- data_qcfail
-
-
-###################################
-### C. IMPORT QC REFERNCE DATA ####
-
-# Import IPB QC data:
-ipbcontrols <- data.table(openxlsx::read.xlsx(xlsxFile = here("data", "20 10 21 IHC Rougeole Euroimmun.xlsx"), 
+### Import IPB QC data:
+ipbcontrols <- data.table(openxlsx::read.xlsx(xlsxFile = params$refmaison, 
                                               sheet = "saisie des données", 
                                               startRow = 6, 
                                               colNames = TRUE, 
                                               cols = 1:7, 
                                               sep.names = "_"))
 
-####################################
-### D. ENTER KIT REFERENCE VALUES ##
+```
 
-# Define kit calibrator and control ranges:
 
-cal_ref <- 0.316
-
-cal_lower <- 0.140
-
-ipc_ref <- 2.6
-
-ipc_lower <- 1.4
-
-ipc_upper <- 3.8
-
-inc_ref <- 0.1
-
-inc_lower <- 0
-
-inc_upper <- 0.7
-
+```{r format sample IDs, include=FALSE}
 
 ###################################
-### DATA PREPROCESSING ############
-###################################
-
 ### RESHAPE SAMPLE ID TABLE #######
 
 # Reshape labels from wide to long format:
@@ -167,9 +222,14 @@ setcolorder(labelong, neworder = c("Rows", "Cols", "Well", "PID"))
 # Set key:
 setkeyv(labelong, c("Rows", "Cols", "Well"))
 
+```
+
+
+```{r format raw ELISA results, include=FALSE}
 
 ###################################
-### SET COLUMN NAMES FOR ELISA ####
+### RESHAPE ELISA RESULTS #########
+
 
 # Define column names to change:
 cols2change_o <- names(elisa_raw[,2:13])
@@ -179,10 +239,6 @@ cols2change_n <- fifelse(nchar(cols2change_o) == 1, paste0("C0", cols2change_o),
 
 # Rename the columns:
 setnames(elisa_raw, cols2change_o, cols2change_n)
-
-
-###################################
-### RESHAPE ELISA RESULTS #########
 
 # Reshape labels from wide to long format:
 elisalong <- data.table(tidyr::pivot_longer(data = elisa_raw, 
@@ -203,6 +259,21 @@ setcolorder(elisalong, neworder = c("Rows", "Cols", "Well", "Delta_DO"))
 setkeyv(elisalong, c("Rows", "Cols", "Well"))
 
 
+###################################
+### REFORMAT ELISA TIME STAMP #####
+
+# Extract ELISA time stamp from data.table:
+elisa_timestamp <- unlist(elisa_timestamp[1:1])
+
+# Convert ELISA time stamp to a date time object:
+elisa_timestamp <- as.POSIXlt.character(elisa_timestamp, format = "%d/%m/%Y %H:%M")
+
+
+```
+
+
+```{r merge sample IDs with ELISA results, include=FALSE}
+
 ###########################################
 ### MERGE ELISA RESULTS WITH SAMPLE IDS ###
 
@@ -210,17 +281,19 @@ setkeyv(elisalong, c("Rows", "Cols", "Well"))
 elisadt <- merge.data.table(labelong, elisalong)
 
 # Replace empty sample IDs with blanks:
-elisadt[ PID == "", PID := "Empty"]
+elisadt[ PID %in% c(NA, ""), PID := "Empty"]
 
 # Replace ODs in empty wells with NA:
 elisadt[ PID == "Empty", Delta_DO := NA]
 
 
-###################################
-### ANALYSIS AND CALCULATIONS #####
-###################################
+```
 
-### MORMALISE RESULTS #############
+
+```{r process ELISA results, include=FALSE}
+
+#############################################
+### MORMALISE RAW ELISA RESULTS #############
 
 # Calculate average extinction value for calibrator duplicates:
 cal_mean <- mean(elisadt$Delta_DO[elisadt$PID == "Cal"])
@@ -239,6 +312,9 @@ elisadt[ Rapport >= 1.1, Interpretation := "Positif"]
 # Correct interpretation for calibrator results:
 elisadt[PID == "Cal", Interpretation := "Calibrateur"]
 
+```
+
+```{r process quality control metrics, include=FALSE}
 
 ###################################
 ### ADD IPB QC CONTROL LIMITS #####  
@@ -276,7 +352,7 @@ ipbqc[, SDmoin3 := ControlMean - (ControlSD * 3)]
 ########################################
 ### ADD CALCULATED QC CONTROL LIMITS ###  
 
-cal_upper <- cal_ref * 3
+cal_upper <- params$calref * 3
 
 epc_lower <- ipbqc$SDmoin2[ipbqc$PID == "EPC"]
 
@@ -289,23 +365,6 @@ enc_upper <- ipbqc$SDplus2[ipbqc$PID == "ENC"]
 
 ###################################
 ### ADD QC FLAGS ##################
-
-# Function to calculate coefficient of variation:
-cv <- function(values, groups){
-  
-  # Calculate standard deviation:
-  stdev = sd(values)
-  
-  # Calculate mean:
-  avg = mean(values)
-  
-  # Calculate % coefficient of variation:
-  cvres  = round((stdev / avg) * 100, 2)
-  
-  # Return result:
-  return(cvres)
-  
-}
 
 # Define duplicate controls:
 controls <- c("Cal", "INC", "ENC", "IPC", "EPC")
@@ -345,18 +404,18 @@ qcdata[PID == "EPC", Mean_RQ := mean(Rapport)]
 
 
 # Add lower bounds column:
-qcdata[PID == "Cal", Inferieure := rep(cal_lower, 2)]
-qcdata[PID == "INC", Inferieure := rep(inc_lower, 2)]
+qcdata[PID == "Cal", Inferieure := rep(params$calinf, 2)]
+qcdata[PID == "INC", Inferieure := rep(params$incinf, 2)]
 qcdata[PID == "ENC", Inferieure := rep(enc_lower, 2)]
-qcdata[PID == "IPC", Inferieure := rep(ipc_lower, 2)]
+qcdata[PID == "IPC", Inferieure := rep(params$ipcinf, 2)]
 qcdata[PID == "EPC", Inferieure := rep(epc_lower, 2)]
 
 
 # Add upper bounds column:
 qcdata[PID == "Cal", Superieure := rep(cal_upper, 2)]
-qcdata[PID == "INC", Superieure := rep(inc_upper, 2)]
+qcdata[PID == "INC", Superieure := rep(params$incsup, 2)]
 qcdata[PID == "ENC", Superieure := rep(enc_upper, 2)]
-qcdata[PID == "IPC", Superieure := rep(ipc_upper, 2)]
+qcdata[PID == "IPC", Superieure := rep(params$ipcsup, 2)]
 qcdata[PID == "EPC", Superieure := rep(epc_upper, 2)]
 
 
@@ -372,10 +431,26 @@ qcdata[, Interpretation := fifelse(QCpass == "Vrai", "Acceptable",
                                            "Trop faible", "Trop élevé"))]
 
 
+```
 
-###################################
-### OUTPUTS AND DOWNLOADS #########
-###################################
+
+
+## Résumé
+
+Ce rapport résume les résultats et l´évaluation du contrôle de qualité de la série de plaque ELISA EUROIMMUN pour le kit **`r params$kit`** effectuée à **`r elisa_timestamp`** par l´operateur **`r params$operateur`**.
+
+Les critères suivantes ont étaient évaluées:
+
+  - Valeurs des témoins internes du kit entre les limites définis pour cette lot
+  - Valeurs des témoins externes entre 2 écartes types par rapport au valeurs de référence
+  - Coefficients de variation entre les puits pour les témoins doublés moins de 10%
+
+
+## Sommaire de l´évaluation de qualité
+
+Un tableau récapitulatif des résultats et intérpretations pour les témoins internes et externes est présenté ci-dessous:
+
+```{r QC summary table, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
 
 # Create QC output table:
 qcout <- dcast(qcdata, PID + 
@@ -413,7 +488,7 @@ setcolorder(qcout, neworder = c("PID", "Source", "Mean_DOD", "Mean_RQ", "SD_DOD"
 
 # Rename columns in French for output:
 setnames(qcout, old = c("PID", "Mean_DOD", "Mean_RQ", "SD_DOD", "QC_cvpass", "QCpass"), 
-         new = c("Controle", "DO", "Rapport", "DS", "CV reussi", "CQ reussi"))
+         new = c("Controle", "DO", "Rapport", "Écart type", "CV reussi", "CQ reussi"))
 
 # Reduce decimal places:
 numcols <- names(which(sapply(qcout, is.numeric)))
@@ -426,7 +501,7 @@ qcprint <- flextable(qcout) %>%
                             "Source", 
                             "DO", 
                             "Rapport", 
-                            "DS", 
+                            "Écart type", 
                             "CV", 
                             "CV reussi", 
                             "Limite", 
@@ -445,8 +520,15 @@ qcprint <- flextable(qcout) %>%
 # Print the table:
 qcprint
 
-###################################
-### GRAPH FOR IPB CONTROLS ###
+```
+
+
+## Visualisation du performance des témoins externes
+
+Les graphiques "Levey-Jennings" pour les témoins externes (positif et négatif) sont présenté ci-dessous.  Une limite de 2 écartes types (plus ou moins) par rapport au des valeurs de référence (obtenu par le laboratoire de référence dans les conditions optimisées) est défini comme le seuil acceptable.  Les valeurs représentés sont des ratios de densités optiques, normalisées par les valeurs du longeur d´onde de référence et le calibreur.  Le calibreur du kit EUROIMMUN représente le limite supérieure pour des échantillons qui sont négatif pour les anticorps ciblées. 
+
+
+```{r LJ graphs preparation, include=FALSE}
 
 # Determine run number for current plate relative to IPB control plates:
 plate_no <- max(ipbcontrols$`N°_de_Serie`, na.rm = TRUE) + 1
@@ -464,13 +546,20 @@ EQCdata[, Plaque := fifelse(Serie == plate_no, "Actuel", "Réference")]
 EQCcurrent <- subset(EQCdata, Plaque == "Actuel")
 
 
+```
+
+
+**A. Graphique Levey-Jenning: témoin externe négatif**
+
+```{r LJ graphs for negative controls, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
+
 # Define the upper and lower bounds for the negative control plot:
 encbounds <- data.table(yintercept = c(ipbqc$SDmoin2[ipbqc$PID == "ENC"],
                                        ipbqc$ControlMean[ipbqc$PID == "ENC"],
                                        ipbqc$SDplus2[ipbqc$PID == "ENC"]), 
-                        Limites = c(paste0(expression("\u0394"), " 2 DS"), 
+                        Limites = c(paste0(expression("\u0394"), " 2 écartes types"), 
                                     "Moyen", 
-                                    paste0(expression("\u0394"), " 2 DS")))
+                                    paste0(expression("\u0394"), " 2 écartes types")))
 
 # Plot the line graph for the IPB negative control with points:
 ENCplot <- ggplot(EQCdata, aes(x = Serie, y = ENC, color = Plaque)) +
@@ -481,7 +570,6 @@ ENCplot <- ggplot(EQCdata, aes(x = Serie, y = ENC, color = Plaque)) +
   scale_color_manual(values = c("Réference" = "blue", "Actuel" = "red")) +
   annotate("text", x = EQCcurrent$Serie, y = (EQCcurrent$ENC + (EQCcurrent$ENC * 0.15)), 
            label = round(EQCcurrent$ENC, 3)) +
-  ggtitle("Graphique d'assurance de qualité: contrôles négatifs") +
   ylab("Valeurs de contrôles négatifs (unités arbitraires)") + 
   theme(axis.title.x = element_text(family = "sans", size = 14, margin = margin(20,0,0,0)), 
         axis.title.y = element_text(family = "sans", size = 14, margin = margin(0,20,0,0)), 
@@ -494,13 +582,21 @@ ENCplot <- ggplot(EQCdata, aes(x = Serie, y = ENC, color = Plaque)) +
 ENCplot
 
 
+
+```
+
+
+**B. Graphique Levey-Jenning: témoin externe positif**
+
+```{r LJ graphs for positive controls, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
+
 # Define the upper and lower bounds for the positive control plot:
 epcbounds <- data.table(yintercept = c(ipbqc$SDmoin2[ipbqc$PID == "EPC"],
                                        ipbqc$ControlMean[ipbqc$PID == "EPC"],
                                        ipbqc$SDplus2[ipbqc$PID == "EPC"]), 
-                        Limites = c(paste0(expression("\u0394"), " 2 DS"), 
+                        Limites = c(paste0(expression("\u0394"), " 2 écartes types"), 
                                     "Moyen", 
-                                    paste0(expression("\u0394"), " 2 DS")))
+                                    paste0(expression("\u0394"), " 2 écartes types")))
 
 # Plot the line graph for the IPB positive control with points:
 EPCplot <- ggplot(EQCdata, aes(x = Serie, y = EPC, color = Plaque)) +
@@ -511,7 +607,6 @@ EPCplot <- ggplot(EQCdata, aes(x = Serie, y = EPC, color = Plaque)) +
   scale_color_manual(values = c("Réference" = "blue", "Actuel" = "red")) +
   annotate("text", x = EQCcurrent$Serie, y = (EQCcurrent$EPC + (EQCcurrent$EPC * 0.05)), 
            label = round(EQCcurrent$EPC, 3)) +
-  ggtitle("Graphique d'assurance de qualité: contrôles positifs") +
   ylab("Valeurs de contrôles positifs (unités arbitraires)") + 
   theme(axis.title.x = element_text(family = "sans", size = 14, margin = margin(20,0,0,0)), 
         axis.title.y = element_text(family = "sans", size = 14, margin = margin(0,20,0,0)), 
@@ -520,10 +615,19 @@ EPCplot <- ggplot(EQCdata, aes(x = Serie, y = EPC, color = Plaque)) +
         legend.text = element_text(family = "sans", size = 10),
         plot.title = element_text(family = "sans", size = 16, face = "bold", margin = margin(0,0,25,0)))
 
-# Print the negative control plot:
+# Print the positive control plot:
 EPCplot
 
+```
 
+
+## Visualisation du plaque
+
+Les résultats calculés (ratios de `r paste0(expression("\u0394"), " DO") ` calibrés) sont représentés dans une forme visuel dans la carte thermique ci-dessous.  La carte thermique peut aider à identifier des contaminations croisées, dont les valeurs sont visualisées en fonction de leur position sur la plaque.
+
+**C. Carte thermique des résultats du plaque ELISA**
+
+```{r ELISA heatmap, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
 
 ###################################
 ### HEAT MAP OF ELISA RESULTS ###
@@ -538,10 +642,8 @@ platemap <- ggplot(elisadt, aes(x = Colabs, y = ordered(Rowlabs, levels = rev(le
   scale_size_continuous(range = c(10, 12)) +
   guides(size = FALSE) +
   scale_color_gradient(low = "lightblue", high = "darkblue", na.value = "lightgrey") + 
-  #scale_color_manual(values = "lightgrey", labels = "Puits vides") +
   ylab("") +
   xlab("") +
-  ggtitle("Visualisation du plaque ELISA: résultats normalisées") +
   scale_x_discrete(position = "top") + 
   theme(axis.title.x = element_text(family = "sans", size = 14, margin = margin(0,0,20,0)), 
         axis.title.y = element_text(family = "sans", size = 14, margin = margin(0,20,0,0)), 
@@ -552,25 +654,16 @@ platemap <- ggplot(elisadt, aes(x = Colabs, y = ordered(Rowlabs, levels = rev(le
 
 platemap
 
-
-###################################
-### RESULTS STATEMENT FOR REPORT ##
+```
 
 
-# Final text advice based on quality control results:
-if(all(qcdata$QC_cvpass) == TRUE & all(qcdata$QCpass) == TRUE) {
-  
-  conseil <- cat("Ce test ELISA a été soumis à des procédures internes de contrôle de la qualité.\nLes résultats sont prêts à être communiqués.")
-  
-} else {
-  
-  conseil <- cat("Ce test ELISA a échoué aux procédures internes de contrôle de la qualité.\nEnvisagez de refaire le test de la plaque.\nLes problèmes suivants doivent être vérifiés et résolus lors du dépannage:\n
-A. Si les résultats sont trop faibles:\n- Le temps d'incubation était trop court\n- La température d'incubation était trop basse\n- Le tampon de lavage n'a pas été complètement retiré des puits\n- Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\n
-B. Si les résultats sont trop élevés:\n- Le temps d'incubation était trop long\n- La température d'incubation (ambiante) était trop élevée\n- Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n- Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\n 
-C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n- Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")
-  
-}
+## Déclaration des résultats de controle de qualité
 
+Ce test ELISA a `r ifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == "Vrai"), "<b>réussi</b> de passer les critères de contrôle de la qualité.\nLes résultats sont prêts à être communiqués.", "<b>échoué</b> de passer les critères de contrôle de la qualité.\nEnvisagez de refaire le test de la plaque.\nLes problèmes suivants doivent être vérifiés et résolus lors du dépannage:\nA. Si les résultats sont trop faibles:\n- Le temps d'incubation était trop court\n- La température d'incubation était trop basse\n- Le tampon de lavage n'a pas été complètement retiré des puits\n- Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\nB. Si les résultats sont trop élevés:\n- Le temps d'incubation était trop long\n- La température d'incubation (ambiante) était trop élevée\n- Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n- Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\nC. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du lecteur ELISA peuvent etre mal alignées\n- Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière")`
+
+
+
+```{r export ELISA results, include=FALSE}
 
 ########################################
 ### EXPORT OF PROCESSED ELISA RESULTS ##
@@ -578,6 +671,18 @@ C. Si les Coefficients de variation (CV) sont trop élevés:\n- Les broches du l
 # Remove controls and blank wells before export:
 elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empty"), 
                    select = c("PID", "Well", "Delta_DO", "Rapport", "Interpretation"))
+
+# Add date time stamp:
+names(elisa_timestamp) = NULL
+elisa_timestamp <- as.character(elisa_timestamp)
+elisaout[, Date_série := elisa_timestamp]
+
+# Add operator name:
+elisaout[, Operateur := params$operateur]
+
+# Add final QC result:
+elisaout[, CQ := fifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == "Vrai"), 
+                         "réussi", "échoué")]
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)
@@ -591,8 +696,4 @@ write.csv(x = elisaout,
           na = "", 
           row.names = FALSE)
 
-
-############################################################################
-## To do:
-
-# Export Rmd report with all this stuff in it but also show on dashboard
+```

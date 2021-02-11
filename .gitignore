@@ -39,7 +39,8 @@ vignettes/*.pdf
 
 # Outputs
 Output/
-
+ELISAQCrapport.html
+ELISAQCrapport_files/
 # R Environment Variables
 .Renviron
 

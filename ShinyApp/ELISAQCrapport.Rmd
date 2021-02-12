@@ -1,73 +1,77 @@
 ---
-params:
-  kit:
-    label: "Kit ELISA:"
-    value: "Rougeole (IgM - NP)"
-    input: select
-    choices: [Rougeole (IgM - NP), Rubéole (IgM - GP), Coqueluche (IgG - PT)]
-  ids:
-    label: "Identifiants des échantillons:"
-    buttonLabel: "Télécharger"
-    placeholder: "Téléchargement en cours"
-    value: "./Data/SampleIDs_QCpass.csv"
-    input: file
-  resultats:
-    label: "Résultats bruts du lecteur ELISA:"
-    buttonLabel: "Télécharger"
-    placeholder: "Téléchargement en cours"
-    value: "./Data/ExampleData_QCpass.csv"
-    input: file
-  refmaison:
-    label: "Valeurs de référence pour controles de lab ref:"
-    buttonLabel: "Télécharger"
-    placeholder: "Téléchargement en cours"
-    value: "./Data/20 10 21 IHC Rougeole Euroimmun.xlsx"
-    input: file
-  operateur:
-    label: "Nom de laborantin qui a effectué cette plaque ELISA:"
-    value: "Amy Mikhail"
-    input: text
-  calref:
-    label: "Valeur de référence pour le calibrateur du kit:"
-    value: 0.316
-    input: numeric
-  calinf:
-    label: "Limite inférieure pour le calibrateur du kit"
-    value: 0.140
-    input: numeric
-  ipcref:
-    label: "Valeur de référence pour le controle positif du kit"
-    value: 2.6
-    input: numeric
-  ipcinf:
-    label: "Limite inférieure pour le controle positif du kit"
-    value: 1.4
-    input: numeric
-  ipcsup:
-    label: "Limite supérieure pour le controle positif du kit"
-    value: 3.8
-    input: numeric
-  incref:
-    label: "Valeur de référence pour le controle négatif du kit"
-    value: 0.1
-    input: numeric
-  incinf:
-    label: "Limite inférieure pour le controle négatif du kit"
-    value: 0
-    input: numeric
-  incsup:
-    label: "Limite supérieure pour le controle négatif du kit"
-    value: 0.7
-    input: numeric
-always_allow_html: yes
 title: "Rapport de Contrôle de Qualité ELISA"
 author: "MOL (laboratoire mobile d´investigation des alertes épidémiques)"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-output: 
-  html_document:
-  toc: true
-  toc_float: true
-
+output:
+  html_document: null
+  toc: yes
+  toc_float: yes
+  toc_levels: 3
+  pdf_document: default
+params:
+  kit:
+    label: 'Kit ELISA:'
+    value: Rougeole (IgM - NP)
+    input: select
+    choices:
+    - Rougeole (IgM - NP)
+    - Rubéole (IgM - GP)
+    - Coqueluche (IgG - PT)
+  ids:
+    label: 'Identifiants des échantillons:'
+    buttonLabel: Télécharger
+    placeholder: Téléchargement en cours
+    value: ../Data/SampleIDs_QCpass.csv
+    input: file
+  resultats:
+    label: 'Résultats bruts du lecteur ELISA:'
+    buttonLabel: Télécharger
+    placeholder: Téléchargement en cours
+    value: ../Data/ExampleData_QCpass.csv
+    input: file
+  refmaison:
+    label: 'Valeurs de référence pour controles de lab ref:'
+    buttonLabel: Télécharger
+    placeholder: Téléchargement en cours
+    value: ../Data/20 10 21 IHC Rougeole Euroimmun.xlsx
+    input: file
+  operateur:
+    label: 'Nom de laborantin qui a effectué cette plaque ELISA:'
+    value: Amy Mikhail
+    input: text
+  calref:
+    label: 'Valeur de référence pour le calibrateur du kit:'
+    value: 0.316
+    input: numeric
+  calinf:
+    label: Limite inférieure pour le calibrateur du kit
+    value: 0.14
+    input: numeric
+  ipcref:
+    label: Valeur de référence pour le controle positif du kit
+    value: 2.6
+    input: numeric
+  ipcinf:
+    label: Limite inférieure pour le controle positif du kit
+    value: 1.4
+    input: numeric
+  ipcsup:
+    label: Limite supérieure pour le controle positif du kit
+    value: 3.8
+    input: numeric
+  incref:
+    label: Valeur de référence pour le controle négatif du kit
+    value: 0.1
+    input: numeric
+  incinf:
+    label: Limite inférieure pour le controle négatif du kit
+    value: 0
+    input: numeric
+  incsup:
+    label: Limite supérieure pour le controle négatif du kit
+    value: 0.7
+    input: numeric
+always_allow_html: yes
 ---
 
 ```{r setup, echo=FALSE, cache=FALSE, message=FALSE, warning=FALSE, results='hide'}
@@ -700,12 +704,12 @@ if(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == "Vrai")){
 
 if(qc == "reussi"){
   
-  knitr::include_graphics('tickmark.png')
+  knitr::include_graphics('marktick.png')
   
   
 } else { 
   
-  knitr::include_graphics('crossmark.png')
+  knitr::include_graphics('markcross.png')
   
 }
 
@@ -738,10 +742,21 @@ if(qc == "reussi"){
 elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empty"), 
                    select = c("PID", "Puit", "Delta_DO", "Ratio", "Interpretation"))
 
+setnames(elisaout, old = c("Ratio", "Delta_DO"), new = c("Valeur", "Résultats_brutes"))
+
 # Add date time stamp:
 names(elisa_timestamp) = NULL
 elisa_timestamp <- as.character(elisa_timestamp)
 elisaout[, Date_série := elisa_timestamp]
+
+# Add Platform:
+elisaout[, Plateforme := "ELISA"]
+
+# Add kit name:
+elisaout[, Kit := params$kit]
+
+# Add units of measurement:
+elisaout[, Unité := "Ratio de densités optiques"]
 
 # Add operator name:
 elisaout[, Operateur := params$operateur]
@@ -749,6 +764,10 @@ elisaout[, Operateur := params$operateur]
 # Add final QC result:
 elisaout[, CQ := fifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == "Vrai"), 
                          "réussi", "échoué")]
+
+# Update column order:
+setcolorder(elisaout, c("PID", "Date_série", "Plateforme", "Kit", "Unité", "Valeur",
+                        "Interpretation", "Operateur", "Puit", "Résultats_brutes", "CQ"))
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)

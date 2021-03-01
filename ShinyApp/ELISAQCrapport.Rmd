@@ -744,6 +744,9 @@ elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empt
 
 setnames(elisaout, old = c("Ratio", "Delta_DO"), new = c("Valeur", "Résultats_brutes"))
 
+# Add sample type:
+elisaout[, Échantillon_type := "sérum"]
+
 # Add date time stamp:
 names(elisa_timestamp) = NULL
 elisa_timestamp <- as.character(elisa_timestamp)
@@ -766,7 +769,7 @@ elisaout[, CQ := fifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == 
                          "réussi", "échoué")]
 
 # Update column order:
-setcolorder(elisaout, c("PID", "Date_série", "Plateforme", "Kit", "Unité", "Valeur",
+setcolorder(elisaout, c("PID", "Échantillon_type", "Date_série", "Plateforme", "Kit", "Unité", "Valeur",
                         "Interpretation", "Operateur", "Puit", "Résultats_brutes", "CQ"))
 
 # Sort the data by patient ID:

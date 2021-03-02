@@ -109,23 +109,32 @@ always_allow_html: yes
 ### R SETTINGS AND PACKAGES #######
 ###################################
 
-### List of required packages:
-pkgs2install <- c("devtools", 
-                  "shiny",
-                  "knitr", 
-                  "rmarkdown",
-                  #"tinytex",
-                  "here", 
-                  "data.table",
-                  "dplyr",
-                  "tidyr", 
-                  "ggplot2",
-                  "openxlsx", 
-                  "flextable", 
-                  "officer")
+### Set CRAN mirror:
 
-### Install packages (if required):
-if (!requireNamespace(c(pkgs2install), quietly = TRUE)) install.packages(c(pkgs2install), dependencies = TRUE)
+# cmirror <- getOption("repos")
+# cmirror["CRAN"] <- "https://cran.mirror.ac.za/"
+# options(repos = cmirror)
+# 
+# ### List of required packages:
+# pkgs2install <- c("devtools", 
+#                   "shiny",
+#                   "knitr", 
+#                   "rmarkdown",
+#                   "rhandsontable",
+#                   "tinytex",
+#                   "here", 
+#                   "data.table",
+#                   "dplyr",
+#                   "tidyr", 
+#                   "ggplot2",
+#                   "openxlsx", 
+#                   "flextable", 
+#                   "officer")
+# 
+# ### Install packages (if required):
+# if (!requireNamespace(c(pkgs2install), quietly = TRUE)){
+#   install.packages(c(pkgs2install), dependencies = TRUE)
+# } 
 
 ### Load packages:
 library(devtools)

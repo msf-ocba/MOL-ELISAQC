@@ -151,7 +151,7 @@ library(flextable)
 library(officer)
 
 ### Function to calculate coefficient of variation:
-cv <- function(values, groups){
+cv <- function(values){
   
   # Calculate standard deviation:
   stdev = sd(values)
@@ -401,7 +401,7 @@ qcdata[, CV := cv(Delta_DO), by = PID]
 qcdata[, maxcv := max(CV, na.rm = TRUE)]
 
 # Add a flag based on the results:
-qcdata[, QC_cvpass := fifelse(maxcv < 10, "Vrai", "Faux")]
+qcdata[, QC_cvpass := fifelse(CV < 10, "Vrai", "Faux")]
 
 # Calculate mean of OD duplicates for calibrator:
 qcdata[PID == "Cal", Mean_RQ := mean(Delta_DO)]

@@ -183,11 +183,14 @@ knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FA
 
 ```{r import data, include=FALSE}
 
+### Fetch labels from table:
+labels2use <- data.table(params$ids)
+
 ### Define which labels to use:
-labels2use <- fread(file = params$ids, 
-                    stringsAsFactors = FALSE, 
-                    header = TRUE, 
-                    colClasses = list(character = 13))
+#labels2use <- fread(file = params$ids, 
+                    #stringsAsFactors = FALSE, 
+                    #header = TRUE, 
+                    #colClasses = list(character = 13))
 
 ### Define name of dataset to use:
 elisa_raw <- fread(file = params$resultats, 

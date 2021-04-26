@@ -151,12 +151,12 @@ server <- function(input, output){
         plate$values <- hot_to_r(input$platemap)
     })
     
-    output$report <- downloadHandler(filename = paste0("ELISAQCrapport_", Sys.Date(), ".html"), 
+    output$rapport <- downloadHandler(filename = "ELISAQCrapport.html", 
                                      content = function(file) {
                                          
                                          # Copy file to temporary directory
-                                         tempReport <- file.path(tempdir(), "ELISAQCrapport.Rmd")
-                                         file.copy("ELISAQCrapport.Rmd", tempReport, overwrite = TRUE)
+                                         #tempReport <- file.path(tempdir(), "ELISAQCrapport.Rmd")
+                                         #file.copy("ELISAQCrapport.Rmd", tempReport, overwrite = TRUE)
                                          
                                          # Set up parameters to pass to Rmd document
                                          params <- list(kit = input$kit, 
@@ -174,10 +174,8 @@ server <- function(input, output){
                                                         incsup = input$incsup) 
                                          
                                          # Knit the document:
-                                         rmarkdown::render(input = tempReport, 
-                                                           output_file = paste0("ELISAQCrapport_", 
-                                                                                Sys.Date(), 
-                                                                                ".html"),
+                                         rmarkdown::render(input = "ELISAQCrapport.Rmd", 
+                                                           output_file = file,
                                                            params = params,
                                                            envir = new.env(parent = globalenv()))
                                      })

@@ -21,19 +21,19 @@ params:
     label: 'Identifiants des échantillons:'
     buttonLabel: Télécharger
     placeholder: Téléchargement en cours
-    value: ../Data/SampleIDs_QCpass.csv
+    value: ../Data/Test_terrain_SampleIDs.csv
     input: file
   resultats:
     label: 'Résultats bruts du lecteur ELISA:'
     buttonLabel: Télécharger
     placeholder: Téléchargement en cours
-    value: ../Data/ExampleData_QCpass.csv
+    value: ../Data/Test_terrain_J1_RawResults_21041601.csv
     input: file
   refmaison:
     label: 'Valeurs de référence pour controles de lab ref:'
     buttonLabel: Télécharger
     placeholder: Téléchargement en cours
-    value: ../Data/20 10 21 IHC Rougeole Euroimmun.xlsx
+    value: ../Data/MOL_refs_rougeole.xlsx
     input: file
   operateur:
     label: 'Nom de laborantin qui a effectué cette plaque ELISA:'
@@ -184,13 +184,13 @@ knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FA
 ```{r import data, include=FALSE}
 
 ### Fetch labels from table:
-labels2use <- data.table(params$ids)
+# labels2use <- data.table(params$ids)
 
 ### Define which labels to use:
-#labels2use <- fread(file = params$ids, 
-                    #stringsAsFactors = FALSE, 
-                    #header = TRUE, 
-                    #colClasses = list(character = 13))
+labels2use <- fread(file = params$ids, 
+                    stringsAsFactors = FALSE, 
+                    header = TRUE, 
+                    colClasses = list(character = 13))
 
 ### Define name of dataset to use:
 elisa_raw <- fread(file = params$resultats, 

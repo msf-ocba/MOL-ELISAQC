@@ -120,6 +120,7 @@ library(rmarkdown)
 library(here)
 library(data.table)
 library(dplyr)
+library(lubridate)
 library(tidyr)
 library(ggplot2)
 library(openxlsx)
@@ -746,9 +747,9 @@ elisaout[, SID := paste0("S", endstring(PID, 3), "_01")]
 # Add sample type:
 elisaout[, Échantillon_type := "sérum"]
 
-# Add date time stamp:
-elisaout[, Date_série := format(elisa_dtstamp, "%d/%m/%Y")]
-elisaout[, Heure_série := format(elisa_dtstamp, "%H:%M")]
+# Add date time stamps:
+elisaout[, Date_prélèvement := format(elisa_dtstamp - lubridate::days(1), "%Y-%m-%d")]
+elisaout[, Date_résultat := format(elisa_dtstamp, "%Y-%m-%d")]
 
 # Add Platform:
 elisaout[, Plateforme := "ELISA"]
@@ -769,16 +770,18 @@ elisaout[, Unité := "Ratio de densités optiques"]
 elisaout[, Operateur := params$operateur]
 
 # Add final QC result:
-elisaout[, CQ := fifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == "Vrai"), 
-                         "réussi", "échoué")]
+elisaout[, CQ := qc]
+
+# Add test status:
+elisaout[, Statut_test := data.table::fifelse(qc == "reussi", "Terminé", "En cours")]
 
 # Update column order:
 setcolorder(elisaout, c("Laboratoire", 
                         "Operateur",
                         "PID",
                         "SID",
-                        "Date_série",
-                        "Heure_série",
+                        "Date_prélèvement",
+                        "Date_résultat",
                         "Échantillon_type",
                         "Plateforme", 
                         "Pathogene",
@@ -788,7 +791,8 @@ setcolorder(elisaout, c("Laboratoire",
                         "Interpretation",
                         "Puit",
                         "Résultats_brutes",
-                        "CQ"))
+                        "CQ", 
+                        "Statut_test"))
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)
@@ -800,10 +804,10 @@ today <- as.character(today)
 
 today <- gsub(":", "", today)
 
-# Export the sub-setted data:
-write.csv(x = elisaout, 
-          file = here("Output", paste0("Résultats_", params$kit, "_", today, ".csv")), 
-          na = "", 
-          row.names = FALSE)
+# Export the sub-setted data (must be .xlsx with dates in YYYY-MM-DD format for Go.Data):
+write.xlsx(x = elisaout, 
+           file = here("Output", paste0("Résultats_", params$kit, "_", today, ".xlsx")),
+           asTable = FALSE, 
+           overwrite = TRUE)
 
 ```

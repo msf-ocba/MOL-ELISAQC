@@ -6,6 +6,13 @@ ELISAQC NEWS
 
 This shiny application was created to provide a user-friendly tool to automate processing, interpretation and quality control of commercial enzyme-linked immunosorbent assay (ELISA) kit results generated in a mobile outbreak investigation laboratory. The application is designed to work as a stand-alone program on a dedicated laptop without an internet connection.  The application is being developed iteratively.  This change log will indicate when the first version has been completed and is ready for beta-testing. 
 
+# Change log: 02 August 2021
+
+- Date time of ELISA results reformatted to match input requirements of Go.Data
+- Lower and upper limits of negative and positive external controls changed to kit limits for same (ODs of reference values created in field test too low due to sample deterioration and therefore not representative).
+- Additional variables added to results output (name of laboratory and sample ID) as needed for Go.Data
+- Function added to extract n characters at the end of a string (used to derive sample ID from patient ID)
+
 
 # Change log: 11 February 2021
 

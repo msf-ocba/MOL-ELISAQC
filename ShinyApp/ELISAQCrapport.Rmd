@@ -33,7 +33,7 @@ params:
     label: 'Valeurs de référence pour controles de lab ref:'
     buttonLabel: Télécharger
     placeholder: Téléchargement en cours
-    value: ../Data/20 10 21 IHC Rougeole Euroimmun.xlsx
+    value: ../Data/MOL_refs_rougeole.xlsx
     input: file
   operateur:
     label: 'Nom de laborantin qui a effectué cette plaque ELISA:'
@@ -74,6 +74,7 @@ params:
 always_allow_html: yes
 ---
 
+
 ```{r setup, echo=FALSE, cache=FALSE, message=FALSE, warning=FALSE, results='hide'}
 
 ###################################
@@ -109,32 +110,7 @@ always_allow_html: yes
 ### R SETTINGS AND PACKAGES #######
 ###################################
 
-### Set CRAN mirror:
 
-# cmirror <- getOption("repos")
-# cmirror["CRAN"] <- "https://cran.mirror.ac.za/"
-# options(repos = cmirror)
-# 
-# ### List of required packages:
-# pkgs2install <- c("devtools", 
-#                   "shiny",
-#                   "knitr", 
-#                   "rmarkdown",
-#                   "rhandsontable",
-#                   "tinytex",
-#                   "here", 
-#                   "data.table",
-#                   "dplyr",
-#                   "tidyr", 
-#                   "ggplot2",
-#                   "openxlsx", 
-#                   "flextable", 
-#                   "officer")
-# 
-# ### Install packages (if required):
-# if (!requireNamespace(c(pkgs2install), quietly = TRUE)){
-#   install.packages(c(pkgs2install), dependencies = TRUE)
-# } 
 
 ### Load packages:
 library(devtools)
@@ -167,6 +143,10 @@ cv <- function(values){
   
 }
 
+### Function to extract the end of a string by n characters:
+endstring = function(x,n){
+  substring(x, nchar(x)-n+1)
+}
 
 ### Create output directory:
 if (!dir.exists(here("Output"))) {dir.create(here("Output"))}
@@ -184,13 +164,15 @@ knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FA
 ```{r import data, include=FALSE}
 
 ### Fetch labels from table:
-labels2use <- data.table(params$ids)
+# labels2use <- data.table(params$ids)
 
 ### Define which labels to use:
-#labels2use <- fread(file = params$ids, 
-                    #stringsAsFactors = FALSE, 
-                    #header = TRUE, 
-                    #colClasses = list(character = 13))
+labels2use <- fread(file = params$ids, 
+                    stringsAsFactors = FALSE, 
+                    header = TRUE, 
+                    colClasses = list(character = 13))
+
+
 
 ### Define name of dataset to use:
 elisa_raw <- fread(file = params$resultats, 
@@ -202,7 +184,7 @@ elisa_raw <- fread(file = params$resultats,
                      colClasses = list(character = 2, numeric = 3:14)) # predefine column types by numeric reference
 
 ### Import time stamp from raw ELISA results file:
-elisa_timestamp <- fread(file = params$resultats, 
+elisa_dtstamp <- fread(file = params$resultats, 
                          stringsAsFactors = FALSE, 
                          skip = 1, 
                          select = 1, 
@@ -210,7 +192,11 @@ elisa_timestamp <- fread(file = params$resultats,
                          header = FALSE, 
                          colClasses = "character")
 
-### Import IPB QC data:
+### convert time stamp to date time string:
+elisa_dtstamp <- as.POSIXlt(elisa_dtstamp[, V1], format = "%d/%m/%Y %H:%M")
+
+
+### Import MOL reference data:
 ipbcontrols <- data.table(openxlsx::read.xlsx(xlsxFile = params$refmaison, 
                                               sheet = "MOL_valeurs_ref", 
                                               startRow = 1, 
@@ -277,15 +263,6 @@ setcolorder(elisalong, neworder = c("Rows", "Cols", "Puit", "Delta_DO"))
 # Set key:
 setkeyv(elisalong, c("Rows", "Cols", "Puit"))
 
-
-###################################
-### REFORMAT ELISA TIME STAMP #####
-
-# Extract ELISA time stamp from data.table:
-elisa_timestamp <- unlist(elisa_timestamp[1:1])
-
-# Convert ELISA time stamp to a date time object:
-elisa_timestamp <- as.POSIXlt.character(elisa_timestamp, format = "%d/%m/%Y %H:%M")
 
 
 ```
@@ -425,17 +402,17 @@ qcdata[PID == "EPC", Mean_RQ := mean(Ratio)]
 # Add lower bounds column:
 qcdata[PID == "Cal", Inferieure := rep(params$calinf, 2)]
 qcdata[PID == "INC", Inferieure := rep(params$incinf, 2)]
-qcdata[PID == "ENC", Inferieure := rep(enc_lower, 2)]
+qcdata[PID == "ENC", Inferieure := rep(0, 2)]
 qcdata[PID == "IPC", Inferieure := rep(params$ipcinf, 2)]
-qcdata[PID == "EPC", Inferieure := rep(epc_lower, 2)]
+qcdata[PID == "EPC", Inferieure := rep(1.1, 2)]
 
 
 # Add upper bounds column:
 qcdata[PID == "Cal", Superieure := rep(cal_upper, 2)]
 qcdata[PID == "INC", Superieure := rep(params$incsup, 2)]
-qcdata[PID == "ENC", Superieure := rep(enc_upper, 2)]
+qcdata[PID == "ENC", Superieure := rep(0.8, 2)]
 qcdata[PID == "IPC", Superieure := rep(params$ipcsup, 2)]
-qcdata[PID == "EPC", Superieure := rep(epc_upper, 2)]
+qcdata[PID == "EPC", Superieure := rep(epc_upper*1.5, 2)]
 
 
 # Determine if controls are within accepted range:
@@ -457,7 +434,7 @@ qcdata[, Interpretation := fifelse(QCpass == "Vrai", "Acceptable",
 ### **Résumé**
 
 
-Ce rapport résume l´évaluation du contrôle de qualité de la série de plaque ELISA pour le kit **EUROIMMUN `r params$kit`** effectuée **`r format(elisa_timestamp, "%A le %d %B %Y à %H:%M")`** par l´operateur **`r params$operateur`**.
+Ce rapport résume l´évaluation du contrôle de qualité de la série de plaque ELISA pour le kit **EUROIMMUN `r params$kit`** effectuée **`r format(elisa_dtstamp, "%A le %d %B %Y à %H:%M")`** par l´operateur **`r params$operateur`**.
 
 Trois standards ont étaient choisi pour évaluer le qualité des résultats:
 
@@ -760,19 +737,30 @@ elisaout <- subset(elisadt, !PID %in% c("Cal", "INC", "IPC", "ENC", "EPC", "Empt
 
 setnames(elisaout, old = c("Ratio", "Delta_DO"), new = c("Valeur", "Résultats_brutes"))
 
+# Add Laboratory name:
+elisaout[, Laboratoire := "MOL"]
+
+# Add sample ID:
+elisaout[, SID := paste0("S", endstring(PID, 3), "_01")]
+
 # Add sample type:
 elisaout[, Échantillon_type := "sérum"]
 
 # Add date time stamp:
-names(elisa_timestamp) = NULL
-elisa_timestamp <- as.character(elisa_timestamp)
-elisaout[, Date_série := elisa_timestamp]
+elisaout[, Date_série := format(elisa_dtstamp, "%d/%m/%Y")]
+elisaout[, Heure_série := format(elisa_dtstamp, "%H:%M")]
 
 # Add Platform:
 elisaout[, Plateforme := "ELISA"]
 
-# Add kit name:
-elisaout[, Kit := params$kit]
+# Add kit details:
+kitdet <- unlist(strsplit(params$kit, split = " \\("))
+
+kitdet[2] <- gsub(")", "", kitdet[2])
+
+elisaout[, Pathogene := kitdet[1]]
+
+elisaout[, Molecule := kitdet[2]]
 
 # Add units of measurement:
 elisaout[, Unité := "Ratio de densités optiques"]
@@ -785,8 +773,22 @@ elisaout[, CQ := fifelse(all(qcdata$QC_cvpass == "Vrai") & all(qcdata$QCpass == 
                          "réussi", "échoué")]
 
 # Update column order:
-setcolorder(elisaout, c("PID", "Échantillon_type", "Date_série", "Plateforme", "Kit", "Unité", "Valeur",
-                        "Interpretation", "Operateur", "Puit", "Résultats_brutes", "CQ"))
+setcolorder(elisaout, c("Laboratoire", 
+                        "Operateur",
+                        "PID",
+                        "SID",
+                        "Date_série",
+                        "Heure_série",
+                        "Échantillon_type",
+                        "Plateforme", 
+                        "Pathogene",
+                        "Molecule",
+                        "Unité", 
+                        "Valeur", 
+                        "Interpretation",
+                        "Puit",
+                        "Résultats_brutes",
+                        "CQ"))
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)

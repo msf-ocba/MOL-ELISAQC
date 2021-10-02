@@ -103,7 +103,11 @@ pkgs2install <- c("devtools",
                   "ggplot2",
                   "openxlsx", 
                   "flextable", 
-                  "officer")
+                  "officer", 
+                  "httr", 
+                  "jsonlite", 
+                  "magrittr", 
+                  "chron")
 
 ###############################################################################
 ### Install packages if missing:

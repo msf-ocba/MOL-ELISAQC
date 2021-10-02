@@ -1,0 +1,363 @@
+---
+title: "Rapport de Contrôle de Qualité ELISA"
+author: "MOL (laboratoire mobile d´investigation des alertes épidémiques)"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document: null
+  toc: yes
+  toc_float: yes
+  toc_levels: 3
+  pdf_document: default
+params:
+  username:
+    label: "Courriel Go.Data:"
+    value: "Amy.Mikhail@barcelona.msf.org"
+    input: text
+  pwd:
+    label: "Mot de passe Go.Data:"
+    value: "5crubber5crubber"
+    input: password
+  url:
+    label: "URL Go.Data:"
+    value: "http://localhost:3000/"
+    input: text
+  kit:
+    label: "Kit ELISA:"
+    value: "Rougeole (IgM - NP)"
+    input: select
+    choices:
+    - Rougeole (IgM - NP)
+    - Rubéole (IgM - GP)
+    - Coqueluche (IgG - PT)
+  ids:
+    label: "Identifiants des échantillons:"
+    buttonLabel: Télécharger
+    placeholder: Téléchargement en cours
+    value: ../Data/Biotek_rougeole_example_ids.csv
+    input: file
+  resultats:
+    label: "Résultats bruts du lecteur ELISA:"
+    buttonLabel: Télécharger
+    placeholder: Téléchargement en cours
+    value: ../Data/Biotek_rougeole_example_data.csv
+    input: file
+  operateur:
+    label: "Nom du laborantin:"
+    value: Amy Mikhail
+    input: text
+  cal12inf:
+    label: "Calibreurs positifs (1-2) - limite inférieure DO:"
+    value: 1.00
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  cal34inf:
+    label: "Calibreurs négatifs (3-4) - limite inférieure DO:"
+    value: 0.14
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  cipcinf:
+    label: "Contrôle positif - limite inférieure IU/mL:"
+    value: 48
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  cipcsup:
+    label: "Contrôle positif - limite supérieure IU/mL:"
+    value: 88
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  cincinf:
+    label: "Contrôle négatif - limite inférieure IU/mL:"
+    value: 0
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  cincsup:
+    label: "Contrôle négatif - limite supérieure IU/mL:"
+    value: 18
+    input: numeric
+    condition: "input.kit == 'Coqueluche (IgG - PT)'"
+  calref:
+    label: "Calibreur - réf:"
+    value: 0.316
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+  calinf:
+    label: "Calibreur - limite inférieure:"
+    value: 0.14
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+  ipcinf:
+    label: "Contrôle positif - limite inférieure:"
+    value: 1.4
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+  ipcsup:
+    label: "Contrôle positif - limite superieure:"
+    value: 3.8
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+  incinf:
+    label: "Contrôle négatif - limite inférieure:"
+    value: 0
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+  incsup:
+    label: "Contrôle négatif - limite superieure:"
+    value: 0.7
+    input: numeric
+    condition: "input.kit %in% c('Rougeole (IgM - NP)', 'Rubéole (IgM - GP)')"
+always_allow_html: yes
+---
+
+```{r setup, echo=FALSE, cache=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+###################################
+### ELISA QC CODE FOR SHINY APP ###
+###################################
+
+# This R markdown file is the command center for handling MOL data:
+# - Allows input of all needed parameters and raw ELISA results
+# - Generates ELISA quality control report
+# - Processes raw ELISA data and produces lab results for validation
+# - Pushes lab results into Go.Data database, updating the record for each case
+# - Generates case line list from case notification and lab data in Go.Data
+# - Generates MOL daily situation report
+
+###################################
+### R SETTINGS AND PACKAGES #######
+###################################
+
+### Load packages:
+library(devtools)
+library(shiny)
+library(knitr)
+library(rmarkdown)
+library(here)
+library(data.table)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+library(openxlsx)
+library(flextable)
+library(officer)
+library(httr)
+library(jsonlite)
+library(drc)
+library(MASS)
+
+### Source functions:
+source("../Functions/endstring.R")
+source("../Functions/list2vector.R")
+source("../Functions/null2na.R")
+source("../Functions/extract_ods.R")
+source("../Functions/extract_dtstamp.R")
+source("../Functions/label_elisaresults.R")
+source("../Functions/calculate_ratios.R")
+source("../Functions/calculate_standardcurve.R")
+source("../Functions/calculate_cv.R")
+source("../Functions/runqc_ratios.R")
+source("../Functions/runqc_standardcurve.R")
+source("../Functions/create_platemap.R")
+source("../Functions/qc_check.R")
+source("../Functions/export_labresults.R")
+source("../Functions/godata_getids.R")
+source("../Functions/godata_updatelab.R")
+source("../Functions/godata_getcaselist.R")
+source("../Functions/godata_getlablist.R")
+source("../Functions/create_linelist.R")
+source("../Functions/knit_params_conditional.R")
+source("../Functions/run_interactive.R")
+
+### Create output directory:
+if (!dir.exists(here("Output"))) {dir.create(here("Output"))}
+
+### Add Go.Data user credentials:
+username <- params$username
+password <- charToRaw(params$pwd)
+
+### Set R options:
+options(scipen = 999)
+
+### Set chunk options:
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FALSE)
+
+```
+
+```{r import data, include=FALSE}
+
+### Import sample IDs (ELISA plate template):
+sampleids <- fread(file = params$ids, 
+                   stringsAsFactors = FALSE, 
+                   header = TRUE, 
+                   colClasses = list(character = 13))
+
+### Import raw ELISA results from .csv or .txt file:
+elisa_raw <- extract_ods(params$resultats)
+
+### Import time stamp from raw ELISA results file:
+elisa_dtstamp <- extract_dtstamp(params$resultats)
+
+```
+
+
+```{r process ELISA results, include=FALSE}
+
+### Label raw ELISA results with their sample IDs:
+elisadt <- label_elisaresults(sampleids = sampleids, elisaresults = elisa_raw)
+
+### Normalize and interpret ELISA results:
+if (params$kit %in% c("Rougeole (IgM - NP)", "Rubéole (IgM - GP)")) {
+  
+  # For measles and rubella, calculate ratios:
+  elisadt <- calculate_ratios(elisadata = elisadt)
+  
+} else if (params$kit %in% c("Coqueluche (IgG - PT)")) {
+  
+  # For pertussis, calculate IU/mL from standard curve:
+  elisadt <- calculate_standardcurve(elisadata = elisadt)
+  
+}
+
+```
+
+
+### **Résumé**
+
+
+Ce rapport résume l´évaluation du contrôle de qualité de la série de plaque ELISA pour le kit **EUROIMMUN `r params$kit`** effectuée **`r format(elisa_dtstamp, "%A le %d %B %Y à %H:%M")`** par l´operateur **`r params$operateur`**.
+
+Trois standards ont étaient choisi pour évaluer le qualité des résultats:
+
+1. Performance des contrôles internes fourni avec les kits par rapport au limites recommandé du fabricateur pour le lot;
+2. Performance des contrôles externes fourni par le laboratoir de référence au niveau qualitatif correcte;
+3. Degré de variation entre les résultats obtenus pour les contrôles doublés dans les positions différentes sur la plaque (si effectué en double).
+
+Les critères suivantes ont étaient évaluées:
+
+  - Valeurs des témoins internes du kit **entre les limites définis pour cette lot**
+  - Interpretation des résultats pour des témoins externes **approprié**
+  - Coefficients de variation entre les puits pour les témoins doublés **moins de 10%**
+
+### **Sommaire de l´évaluation de qualité**
+
+
+Un tableau récapitulatif des résultats et intérpretations pour les témoins internes et externes est présenté ci-dessous:
+
+```{r produce quality control table, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
+
+### Run quality control checks on the ELISA results:
+if (params$kit %in% c("Rougeole (IgM - NP)", "Rubéole (IgM - GP)")) {
+  
+  # Create QC table for measles and rubella ELISA plates:
+  qctab <- runqc_ratios(elisadata = elisadt,
+                       calinf = params$calinf,
+                       calref = params$calref,
+                       ipcinf = params$ipcinf,
+                       ipcsup = params$ipcsup,
+                       incinf = params$incinf,
+                       incsup = params$incsup)
+
+  
+} else if (params$kit %in% c("Coqueluche (IgG - PT)")) {
+  
+  # Create QC table for pertussis ELISA plate:
+  qctab <- runqc_standardcurve(elisadata = elisadt,
+                               cal12inf = params$cal12inf,
+                               cal34inf = params$cal34inf,
+                               cipcinf = params$cipcinf,
+                               cipcsup = params$cipcsup,
+                               cincinf = params$cincinf,
+                               cincsup = params$cincsup)
+}
+
+# Print QC table:
+qctab
+
+```
+
+### **Visualisation du plaque**
+
+
+Les résultats calculés (ratios de `r paste0(expression("\u0394"), " DO") ` calibrés) sont représentés dans une forme visuel dans la carte thermique ci-dessous.  La carte thermique peut aider à identifier des contaminations croisées, dont les valeurs sont visualisées en fonction de leur position sur la plaque.
+
+**C. Carte thermique des résultats du plaque ELISA**
+
+
+```{r ELISA heatmap, echo=FALSE, message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align="left"}
+
+# Create the heat-map of the ELISA plate:
+platemap <- create_platemap(elisadata = elisadt)
+
+# Print the heat-map:
+platemap
+
+```
+
+### **Déclaration des résultats de controle de qualité**
+
+```{r condition, include=FALSE}
+
+qc <- qc_check(qctable = qctab)
+
+```
+
+```{r QC mark, echo=FALSE, message=FALSE, warning=FALSE, fig.width=1, fig.height=1, fig.align="left"}
+
+if(qc == "reussi"){
+  
+  knitr::include_graphics('marktick.png')
+  
+  
+} else { 
+  
+  knitr::include_graphics('markcross.png')
+  
+}
+
+```
+
+```{r statement, echo=FALSE, results='asis'}
+
+if(qc == "reussi"){
+  
+    cat(paste0("Ce plaque ELISA a ", "<b>", "réussi", "</b>", " de passer les critères de contrôle de la qualité.\n\n Les résultats sont prêts à être communiqués."))
+  
+} else {
+  
+  cat(paste0("Ce plaque ELISA a ", "<b>", "échoué", "</b>", " de passer les critères de contrôle de la qualité.\n\n Envisagez de refaire le test de la plaque.\n\n Les problèmes suivants doivent être vérifiés et résolus lors du dépannage:\n\n A. Si les résultats sont trop faibles:\n\n  - Le temps d'incubation était trop court\n  - La température d'incubation était trop basse\n  - Le tampon de lavage n'a pas été complètement retiré des puits\n  - Il y a eu une rupture de la chaîne du froid pendant le stockage des réactifs\n\n B. Si les résultats sont trop élevés:\n\n  - Le temps d'incubation était trop long\n  - La température d'incubation (ambiante) était trop élevée\n  - Le lavage des assiettes était insuffisant (temps trop court ou pas assez de tampon de lavage utilisé)\n  - Une contamination croisée s'est produite (si les valeurs du contrôle négatif sont trop élevées)\n\n C. Si les Coefficients de variation (CV) sont trop élevés:\n\n  - Les broches du lecteur ELISA peuvent etre mal alignées\n  - Les composants optiques du lecteur ELISA peuvent être contaminés par de la poussière"))
+
+}
+
+
+```
+
+```{r export ELISA results, include=FALSE}
+
+elisaout <- export_labresults(elisadata = elisadt, 
+                                kit = params$kit, 
+                                timestamp = elisa_dtstamp, 
+                                qcstatus = qc, 
+                                operator = params$operateur)
+
+```
+
+```{r update Go.Data with lab results, include=FALSE}
+
+# Push lab results to Go.Data:
+godata_updatelab(godataids = godata_getids(), elisaresults = elisaout)
+
+```
+
+```{r create case linelist, include=FALSE}
+
+# Get case data from Go.Data:
+caseres <- godata_getcaselist(godataids = godata_getids())
+
+# Get lab data from Go.Data:
+labres <- godata_getlablist(godataids = godata_getids())
+
+# Create and export merged line list:
+linelist <- create_linelist(caselist = caseres, lablist = labres)
+
+
+```

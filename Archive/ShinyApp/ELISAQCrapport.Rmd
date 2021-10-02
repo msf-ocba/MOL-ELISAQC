@@ -9,6 +9,18 @@ output:
   toc_levels: 3
   pdf_document: default
 params:
+  username:
+    label: 'Courriel'
+    value: user.name@companie.org
+    input: text
+  pwd:
+    label: "Mot de passe:"
+    value: ""
+    input: password
+  outbreak:
+    label: 'Épidemie:'
+    value: MOL pilote
+    input: text
   kit:
     label: 'Kit ELISA:'
     value: Rougeole (IgM - NP)
@@ -126,6 +138,10 @@ library(ggplot2)
 library(openxlsx)
 library(flextable)
 library(officer)
+library(httr)
+library(jsonlite)
+library(magrittr)
+library(chron)
 
 ### Function to calculate coefficient of variation:
 cv <- function(values){
@@ -775,6 +791,9 @@ elisaout[, CQ := qc]
 # Add test status:
 elisaout[, Statut_test := data.table::fifelse(qc == "reussi", "Terminé", "En cours")]
 
+# Add updated at field to overwrite:
+elisaout[, Updated_at := Sys.time()]
+
 # Update column order:
 setcolorder(elisaout, c("Laboratoire", 
                         "Operateur",
@@ -792,7 +811,8 @@ setcolorder(elisaout, c("Laboratoire",
                         "Puit",
                         "Résultats_brutes",
                         "CQ", 
-                        "Statut_test"))
+                        "Statut_test", 
+                        "Updated_at"))
 
 # Sort the data by patient ID:
 setorder(elisaout, PID)

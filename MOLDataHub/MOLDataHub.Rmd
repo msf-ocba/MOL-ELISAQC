@@ -11,11 +11,11 @@ output:
 params:
   username:
     label: "Courriel Go.Data:"
-    value: "Amy.Mikhail@barcelona.msf.org"
+    value: ""
     input: text
   pwd:
     label: "Mot de passe Go.Data:"
-    value: "5crubber5crubber"
+    value: ""
     input: password
   url:
     label: "URL Go.Data:"
